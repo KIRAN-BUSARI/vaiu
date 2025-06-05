@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { client } from "@/lib/rpc";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface VerifyUserInput {
   userId: string;
@@ -13,6 +14,7 @@ interface VerifyUserResponse {
 }
 
 export const useVerifyUser = () => {
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const mutation = useMutation<
@@ -24,13 +26,16 @@ export const useVerifyUser = () => {
       const response = await client.api.v1.auth["verify-user"].$post({ json });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to verify user");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          "error" in errorData ? String(errorData.error) : "Failed to login",
+        );
       }
 
       return response.json();
     },
     onSuccess: (data) => {
+      router.refresh();
       toast.success(data.message || "Verification completed successfully");
       queryClient.invalidateQueries({ queryKey: ["current"] });
     },

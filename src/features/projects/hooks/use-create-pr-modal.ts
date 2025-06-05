@@ -3,7 +3,7 @@ import { useQueryState, parseAsBoolean } from "nuqs";
 export const useCreatePrModal = () => {
   const [isOpen, setIsOpen] = useQueryState(
     "create-pr",
-    parseAsBoolean.withDefault(false).withOptions({ clearOnDefault: true })
+    parseAsBoolean.withDefault(false).withOptions({ clearOnDefault: true }),
   );
 
   const openPr = () => setIsOpen(true);

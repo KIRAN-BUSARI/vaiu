@@ -10,7 +10,7 @@ import {
   IMAGES_BUCKET_ID,
   PR_ID,
   PROJECTS_ID,
-  TASKS_ID,
+  ISSUES_ID,
 } from "@/config";
 
 import {
@@ -19,10 +19,11 @@ import {
   updateProjectSchema,
   createPrSchema,
   addExistingProjectSchema,
+  fileUploadSchema,
 } from "../schemas";
 import { Project } from "../types";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
-import { TaskStatus } from "@/features/tasks/types";
+import { IssueStatus } from "@/features/issues/types";
 import { Octokit } from "octokit";
 
 const extractRepoName = (githubUrl: string): string => {
@@ -63,14 +64,14 @@ const app = new Hono()
         const file = await storage.createFile(
           IMAGES_BUCKET_ID,
           ID.unique(),
-          image
+          image,
         );
         const buffer: ArrayBuffer = await storage.getFilePreview(
           IMAGES_BUCKET_ID,
-          file.$id
+          file.$id,
         );
         uploadedImage = `data:image/png;base64,${Buffer.from(buffer).toString(
-          "base64"
+          "base64",
         )}`;
       }
 
@@ -82,7 +83,7 @@ const app = new Hono()
           Query.orderDesc("$createdAt"),
           Query.equal("name", name),
           Query.limit(1),
-        ]
+        ],
       );
 
       const correctedName = name.replace(/\s+/g, "-").toLowerCase();
@@ -108,12 +109,12 @@ const app = new Hono()
             accessToken,
             workspaceId,
             projectAdmin: member.$id,
-          }
+          },
         );
 
         return c.json({ data: project, repo: repo.data });
       }
-    }
+    },
   )
   .post(
     "/add-existing-project",
@@ -153,11 +154,54 @@ const app = new Hono()
           workspaceId,
           projectAdmin: member.$id,
           accessToken,
-        }
+        },
       );
 
-      return c.json({ data: project });
-    }
+      const octokit = new Octokit({
+        auth: accessToken,
+      });
+
+      const owner = await octokit.rest.users.getAuthenticated();
+
+      const { data } = await octokit.rest.issues.listForRepo({
+        owner: owner.data.login,
+        repo: repoName,
+      });
+
+      console.log("issues", data);
+
+      const status = IssueStatus.TODO;
+
+      const highestPositionTask = await databases.listDocuments(
+        DATABASE_ID,
+        ISSUES_ID,
+        [
+          Query.equal("status", status),
+          Query.equal("workspaceId", workspaceId),
+          Query.orderAsc("position"),
+          Query.limit(1),
+        ],
+      );
+
+      const newPosition =
+        highestPositionTask.documents.length > 0
+          ? highestPositionTask.documents[0].position + 1000
+          : 1000;
+
+      data.map(async (issue) => {
+        await databases.createDocument(DATABASE_ID, ISSUES_ID, ID.unique(), {
+          name: issue.title,
+          description: issue.body,
+          workspaceId,
+          projectId: project.$id,
+          assigneeId: issue?.assignee?.login,
+          status,
+          position: newPosition,
+          dueDate: issue.created_at,
+        });
+      });
+      return c.json({ data: project, issues: data });
+    },
   )
   .get(
     "/",
@@ -185,11 +229,14 @@ const app = new Hono()
       const projects = await databases.listDocuments<Project>(
         DATABASE_ID,
         PROJECTS_ID,
-        [Query.equal("workspaceId", workspaceId), Query.orderDesc("$createdAt")]
+        [
+          Query.equal("workspaceId", workspaceId),
+          Query.orderDesc("$createdAt"),
+        ],
       );
 
       return c.json({ data: projects });
-    }
+    },
   )
   .get("/:projectId", sessionMiddleware, async (c) => {
     const databases = c.get("databases");
@@ -199,7 +246,7 @@ const app = new Hono()
     const project = await databases.getDocument<Project>(
       DATABASE_ID,
       PROJECTS_ID,
-      projectId
+      projectId,
     );
 
     const member = await getMember({
@@ -221,7 +268,7 @@ const app = new Hono()
     const project = await databases.getDocument<Project>(
       DATABASE_ID,
       PROJECTS_ID,
-      projectId
+      projectId,
     );
 
     const member = await getMember({
@@ -241,21 +288,21 @@ const app = new Hono()
 
     const thisMonthTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
         Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString()),
-      ]
+      ],
     );
     const lastMonthTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
         Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString()),
-      ]
+      ],
     );
 
     const taskCount = thisMonthTasks.total;
@@ -263,23 +310,23 @@ const app = new Hono()
 
     const thisMonthAssignedTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
         Query.equal("assigneeId", member.$id),
         Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString()),
-      ]
+      ],
     );
     const lastMonthAssignedTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
         Query.equal("assigneeId", member.$id),
         Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString()),
-      ]
+      ],
     );
 
     const assignedTaskCount = thisMonthAssignedTasks.total;
@@ -287,23 +334,23 @@ const app = new Hono()
 
     const thisMonthIncompleteTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
-        Query.notEqual("status", TaskStatus.DONE),
+        Query.notEqual("status", IssueStatus.DONE),
         Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString()),
-      ]
+      ],
     );
     const lastMonthIncompleteTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
-        Query.notEqual("status", TaskStatus.DONE),
+        Query.notEqual("status", IssueStatus.DONE),
         Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString()),
-      ]
+      ],
     );
 
     const incompleteTaskCount = thisMonthIncompleteTasks.total;
@@ -312,23 +359,23 @@ const app = new Hono()
 
     const thisMonthCompletedTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
-        Query.equal("status", TaskStatus.DONE),
+        Query.equal("status", IssueStatus.DONE),
         Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString()),
-      ]
+      ],
     );
     const lastMonthCompletedTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
-        Query.equal("status", TaskStatus.DONE),
+        Query.equal("status", IssueStatus.DONE),
         Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString()),
-      ]
+      ],
     );
 
     const completedTaskCount = thisMonthCompletedTasks.total;
@@ -336,25 +383,25 @@ const app = new Hono()
 
     const thisMonthOverDueTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
-        Query.notEqual("status", TaskStatus.DONE),
+        Query.notEqual("status", IssueStatus.DONE),
         Query.lessThan("dueDate", now.toISOString()),
         Query.greaterThanEqual("$createdAt", thisMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", thisMonthEnd.toISOString()),
-      ]
+      ],
     );
     const lastMonthOverDueTasks = await databases.listDocuments(
       DATABASE_ID,
-      TASKS_ID,
+      ISSUES_ID,
       [
         Query.equal("projectId", projectId),
-        Query.notEqual("status", TaskStatus.DONE),
+        Query.notEqual("status", IssueStatus.DONE),
         Query.lessThan("dueDate", now.toISOString()),
         Query.greaterThanEqual("$createdAt", lastMonthStart.toISOString()),
         Query.lessThanEqual("$createdAt", lastMonthEnd.toISOString()),
-      ]
+      ],
     );
 
     const overdueTaskCount = thisMonthOverDueTasks.total;
@@ -390,7 +437,7 @@ const app = new Hono()
       const existingProject = await databases.getDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
-        projectId
+        projectId,
       );
       const member = await getMember({
         databases,
@@ -407,14 +454,14 @@ const app = new Hono()
         const file = await storage.createFile(
           IMAGES_BUCKET_ID,
           ID.unique(),
-          image
+          image,
         );
         const buffer: ArrayBuffer = await storage.getFilePreview(
           IMAGES_BUCKET_ID,
-          file.$id
+          file.$id,
         );
         uploadedImage = `data:image/png;base64,${Buffer.from(buffer).toString(
-          "base64"
+          "base64",
         )}`;
       } else {
         uploadedImage = image;
@@ -426,11 +473,11 @@ const app = new Hono()
         {
           name,
           imageUrl: uploadedImage,
-        }
+        },
       );
 
       return c.json({ data: updatedProject });
-    }
+    },
   )
   .delete("/:projectId", sessionMiddleware, async (c) => {
     const databases = c.get("databases");
@@ -440,7 +487,7 @@ const app = new Hono()
     const existingProject = await databases.getDocument<Project>(
       DATABASE_ID,
       PROJECTS_ID,
-      projectId
+      projectId,
     );
 
     const member = await getMember({
@@ -480,7 +527,7 @@ const app = new Hono()
       const existingProject = await databases.getDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
-        projectId
+        projectId,
       );
 
       const octokit = new Octokit({
@@ -512,7 +559,7 @@ const app = new Hono()
         });
 
         const projectCollaborators = Array.isArray(
-          existingProject.projectCollaborators
+          existingProject.projectCollaborators,
         )
           ? existingProject.projectCollaborators
           : [];
@@ -528,7 +575,7 @@ const app = new Hono()
         console.error("Failed to add collaborator:", error);
         return c.json({ error: "Failed to add collaborator" }, 500);
       }
-    }
+    },
   )
   .post(
     "/:projectId/submit-pull-request",
@@ -549,13 +596,13 @@ const app = new Hono()
       const existingProject = await databases.getDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
-        projectId
+        projectId,
       );
 
       const project = await databases.getDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
-        projectId
+        projectId,
       );
 
       if (!existingProject) {
@@ -605,13 +652,94 @@ const app = new Hono()
               pullRequest: createPR.data,
             },
           },
-          200
+          200,
         );
       } catch (error) {
         console.error("Failed to create PR:", error);
         return c.json({ error: "Failed to create PR" }, 500);
       }
-    }
+    },
+  )
+  .post(
+    "/upload-file",
+    sessionMiddleware,
+    zValidator("form", fileUploadSchema),
+    async (c) => {
+      const storage = c.get("storage");
+      const databases = c.get("databases");
+      const { file, projectId } = c.req.valid("form");
+
+      if (!file) {
+        return c.json({ error: "File is required" }, 400);
+      }
+
+      try {
+        const project = await databases.getDocument(
+          DATABASE_ID,
+          PROJECTS_ID,
+          projectId,
+        );
+
+        if (!project) {
+          return c.json({ error: "Project not found" }, 404);
+        }
+      } catch (error) {
+        console.error("Error fetching project:", error);
+        return c.json({ error: "Project not found" }, 404);
+      }
+
+      let uploadedFile;
+
+      if (file instanceof File) {
+        uploadedFile = await storage.createFile(
+          IMAGES_BUCKET_ID,
+          ID.unique(),
+          file,
+        );
+
+        if (
+          file.name.toLowerCase().endsWith(".md") ||
+          file.name.toLowerCase().endsWith(".txt")
+        ) {
+          try {
+            // Get the file content as a buffer
+            const fileBuffer = await storage.getFileDownload(
+              IMAGES_BUCKET_ID,
+              uploadedFile.$id,
+            );
+
+            // Convert buffer to string to get the actual text content
+            const fileContent = Buffer.from(fileBuffer).toString("utf-8");
+
+            // Update the project with the actual README content
+            await databases.updateDocument(
+              DATABASE_ID,
+              PROJECTS_ID,
+              projectId,
+              {
+                readme: fileContent,
+              },
+            );
+
+            return c.json({
+              data: {
+                file: uploadedFile,
+                readmeContent: fileContent,
+              },
+            });
+          } catch (error) {
+            console.error("Error processing README file:", error);
+          }
+        }
+      } else {
+        return c.json({ error: "Invalid file type" }, 400);
+      }
+      return c.json({
+        data: {
+          file: uploadedFile,
+        },
+      });
+    },
   );
 
 export default app;

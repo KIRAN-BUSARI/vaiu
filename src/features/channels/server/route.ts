@@ -34,7 +34,7 @@ const app = new Hono()
           roomType,
           workspaceId,
           projectId,
-        }
+        },
       );
 
       return c.json({ data: room });
@@ -48,26 +48,39 @@ const app = new Hono()
     sessionMiddleware,
     zValidator(
       "query",
-      z.object({ workspaceId: z.string(), projectId: z.string() })
+      z.object({
+        workspaceId: z.string(),
+        projectId: z.string().optional(),
+      }),
     ),
     async (c) => {
       const databases = c.get("databases");
 
-      const { workspaceId } = c.req.valid("query");
-      const { projectId } = c.req.valid("query");
+      const { workspaceId, projectId } = c.req.valid("query");
 
       if (!workspaceId) {
         return c.json({ error: "Missing workspaceId" }, 400);
       }
 
-      const rooms = await databases.listDocuments(DATABASE_ID, ROOMS_ID, [
+      // Build query parameters
+      const queryParams = [
         Query.equal("workspaceId", workspaceId),
-        Query.equal("projectId", projectId),
         Query.orderDesc("$createdAt"),
-      ]);
+      ];
+
+      // Add projectId filter only if provided
+      if (projectId) {
+        queryParams.push(Query.equal("projectId", projectId));
+      }
+
+      const rooms = await databases.listDocuments(
+        DATABASE_ID,
+        ROOMS_ID,
+        queryParams,
+      );
 
       return c.json({ data: rooms });
-    }
+    },
   )
   .get("/:roomId", sessionMiddleware, async (c) => {
     const databases = c.get("databases");
@@ -77,7 +90,7 @@ const app = new Hono()
     const room = await databases.getDocument<Room>(
       DATABASE_ID,
       ROOMS_ID,
-      roomId
+      roomId,
     );
 
     const member = await getMember({
@@ -99,7 +112,7 @@ const app = new Hono()
     const existingRoom = await databases.getDocument<Room>(
       DATABASE_ID,
       ROOMS_ID,
-      roomId
+      roomId,
     );
 
     const member = await getMember({
