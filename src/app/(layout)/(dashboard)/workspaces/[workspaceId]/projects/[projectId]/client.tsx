@@ -219,14 +219,6 @@ export const ProjectIdClient = () => {
                 </Button>
                 <Button
                   className="w-full justify-start bg-slate-200 text-black hover:bg-slate-300"
-                  onClick={handleFileUpload}
-                  variant="default"
-                >
-                  <UploadIcon className="mr-2 size-4" />
-                  Upload Readme
-                </Button>
-                <Button
-                  className="w-full justify-start bg-slate-200 text-black hover:bg-slate-300"
                   onClick={handleCreatePr}
                   variant="default"
                 >
