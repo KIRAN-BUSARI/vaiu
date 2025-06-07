@@ -25,11 +25,7 @@ export function Navbar({ className }: { className?: string }) {
           <Logo2 className="hidden dark:block" />
         </Link>
         <div className="flex items-center gap-x-4">
-          <Button
-            asChild
-            variant="outline"
-            className="font-semibold text-[#75c1ff] hover:text-[#75c1ff]/80"
-          >
+          <Button className="font-semibold text-white/90 hover:text-[#75c1ff] dark:text-black/80 dark:hover:text-black/90">
             <Link href={isSignIn ? "/sign-up" : "/sign-in"}>
               {isSignIn ? "SignUp" : "SignIn"}
             </Link>

@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 
-import { DottedSeparator } from "@/components/dotted-separator";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -26,6 +25,7 @@ import { type RegisterSchema, registerSchema } from "../schemas";
 import { useRegister } from "../api/use-register";
 import { signUpWithGithub } from "@/lib/oauth";
 import { Eye, EyeOff } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 export const SignUpCard = () => {
   const { mutate, isPending } = useRegister();
@@ -44,10 +44,10 @@ export const SignUpCard = () => {
     mutate({ json: values });
   };
   return (
-    <Card className="size-full border-none bg-slate-200 shadow-none dark:bg-zinc-800 md:w-[487px]">
-      <CardHeader className="flexx items-center justify-center px-4 py-8 text-center">
+    <Card className="size-full border-none bg-neutral-200 shadow-none dark:bg-neutral-900 md:w-[487px]">
+      <CardHeader className="flex items-center justify-center px-4 py-8 text-center">
         <CardTitle className="text-2xl">Sign Up</CardTitle>
-        <CardDescription className="dark:text-slate-10 text-[12px] text-slate-900 dark:text-slate-200">
+        <CardDescription className="text-[12px] text-slate-900 dark:text-slate-200">
           By signing up, you agree to our <br />
           <Link href="/privacy">
             <span className="text-gray-400 underline underline-offset-2">
@@ -57,12 +57,12 @@ export const SignUpCard = () => {
           and{" "}
           <Link href="/terms">
             <span className="text-gray-400 underline underline-offset-2">
-              terms
+              Terms
             </span>
           </Link>
         </CardDescription>
       </CardHeader>
-      <CardContent className="px-4">
+      <CardContent className="p-1 px-4">
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}
@@ -140,24 +140,24 @@ export const SignUpCard = () => {
           </form>
         </Form>
       </CardContent>
-      <div className="hidden px-7">
-        <DottedSeparator />
+      <div className="px-7 py-4">
+        <Separator />
       </div>
-      <CardContent className="hidden flex-col gap-y-2 p-7">
+      <CardContent className="flex items-center justify-center px-4">
         <Button
           onClick={() => signUpWithGithub()}
           disabled={isPending}
           variant="secondary"
           size="lg"
-          className="w-full border border-zinc-600"
+          className="w-3/4 border border-zinc-600"
         >
           <FaGithub className="mr-2 size-5" />
-          Login with Github
+          Continue with GitHub
         </Button>
       </CardContent>
       <CardContent className="flex items-center justify-center p-4 text-sm">
         <p>
-          already have an account?
+          Already have an account?
           <Link href="/sign-in">
             <span className="text-[#71c1ff] hover:underline hover:underline-offset-2">
               &nbsp;Sign In
