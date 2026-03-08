@@ -1,6 +1,7 @@
 import { ID, Query } from "node-appwrite";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
+import { setCookie } from "hono/cookie";
 
 import { sessionMiddleware } from "@/lib/session-middleware";
 import {
@@ -725,6 +726,54 @@ const app = new Hono()
       return c.json({ data: project });
     },
   )
+  // ── GitHub App: initiate installation ─────────────────────────────────────
+  .get("/:workspaceId/github/install", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { workspaceId } = c.req.param();
+
+    const member = await getMember({ databases, workspaceId, userId: user.$id });
+
+    if (!member || (member.role !== MemberRole.ADMIN && member.role !== "SUPER_ADMIN")) {
+      return c.json({ error: "Only workspace admins can connect GitHub" }, 403);
+    }
+
+    const installUrl = process.env.NEXT_PUBLIC_GITHUB_APP_INSTALL_URL;
+    if (!installUrl) {
+      return c.json({ error: "GitHub App install URL not configured" }, 500);
+    }
+
+    // Store workspaceId in a short-lived cookie for the callback to read
+    setCookie(c, "github_install_state", workspaceId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 600, // 10 minutes
+      path: "/",
+    });
+
+    const redirectUrl = `${installUrl}?state=${encodeURIComponent(workspaceId)}`;
+    return c.redirect(redirectUrl, 302);
+  })
+  // ── GitHub App: disconnect installation ────────────────────────────────────
+  .delete("/:workspaceId/github/disconnect", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { workspaceId } = c.req.param();
+
+    const member = await getMember({ databases, workspaceId, userId: user.$id });
+
+    if (!member || (member.role !== MemberRole.ADMIN && member.role !== "SUPER_ADMIN")) {
+      return c.json({ error: "Only workspace admins can disconnect GitHub" }, 403);
+    }
+
+    await databases.updateDocument(DATABASE_ID, WORKSPACE_ID, workspaceId, {
+      githubInstallationId: null,
+      githubAccountLogin: null,
+      githubAccountType: null,
+    });
+
+    return c.json({ data: { $id: workspaceId } });
+  })
   .post(
     "/:workspaceId/join",
     sessionMiddleware,

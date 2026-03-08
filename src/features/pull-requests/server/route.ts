@@ -9,6 +9,7 @@ import { Octokit, RequestError } from "octokit";
 import { PrStatus } from "../types";
 import {
   getAccessToken,
+  getInstallationToken,
   listPullRequests,
   createPullRequest,
   checkCollaborator,
@@ -61,12 +62,14 @@ const app = new Hono()
         }
       }
 
-      // Get GitHub OAuth access token
-      const githubToken = await getAccessToken(user.$id);
+      // Prefer installation token (workspace-level); fall back to user OAuth token
+      const githubToken =
+        (await getInstallationToken(workspaceId)) ||
+        (await getAccessToken(user.$id));
 
       if (!githubToken) {
         return c.json({
-          error: "GitHub account not connected. Cannot fetch pull requests."
+          error: "GitHub not connected. Connect GitHub in workspace settings or sign in with GitHub.",
         }, 400);
       }
 
