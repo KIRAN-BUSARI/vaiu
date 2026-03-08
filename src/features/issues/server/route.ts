@@ -22,6 +22,7 @@ import { Project } from "@/features/projects/types";
 import { Member } from "@/features/members/types";
 import {
   getAccessToken,
+  getInstallationToken,
   getAuthenticatedUser,
   listRepositoryIssues,
   updateIssue,
@@ -585,23 +586,19 @@ const app = new Hono()
             issue.projectId,
           );
 
-          // Get GitHub OAuth access token
+          // Write operation: use user OAuth token for proper attribution
           const githubToken = await getAccessToken(user.$id);
 
           if (githubToken) {
-            const owner = await getAuthenticatedUser(githubToken);
+            const newState = status === "DONE" ? "closed" : "open";
 
-            if (owner) {
-              const newState = status === "DONE" ? "closed" : "open";
-
-              await updateIssue(
-                githubToken,
-                owner.login,
-                project.name,
-                issue.number,
-                { state: newState },
-              );
-            }
+            await updateIssue(
+              githubToken,
+              project.owner,
+              project.name,
+              issue.number,
+              { state: newState },
+            );
           }
         } catch (error) {
           console.error("Error syncing to GitHub:", error);
@@ -853,36 +850,31 @@ const app = new Hono()
             existing.projectId,
           );
 
-          // Get GitHub OAuth access token
-          const githubToken = await getAccessToken(user.$id);
+          // Use installation token for the read; user token for the write
+          const readToken =
+            (await getInstallationToken(workspaceId)) ||
+            (await getAccessToken(user.$id));
+          const writeToken = await getAccessToken(user.$id);
 
-          if (githubToken) {
-            const owner = await getAuthenticatedUser(githubToken);
+          if (readToken) {
+            const issuesFromGit = await listRepositoryIssues(
+              readToken,
+              project.owner,
+              project.name,
+            );
 
-            if (owner) {
-              const issuesFromGit = await listRepositoryIssues(
-                githubToken,
-                owner.login,
+            const currentIssue = issuesFromGit.find(
+              (issue) => issue.title === existing.name,
+            );
+
+            if (currentIssue && writeToken) {
+              await updateIssue(
+                writeToken,
+                project.owner,
                 project.name,
+                currentIssue.number,
+                { state: "closed" },
               );
-
-              const currentIssue = issuesFromGit.find(
-                (issue) => issue.title === existing.name,
-              );
-
-              if (!currentIssue) {
-                return c.json({ error: "Issue not found" }, 404);
-              }
-
-              if (currentIssue) {
-                await updateIssue(
-                  githubToken,
-                  owner.login,
-                  project.name,
-                  currentIssue.number,
-                  { state: "closed" },
-                );
-              }
             }
           }
         }
@@ -953,27 +945,23 @@ const app = new Hono()
           }
         }
 
-        // Get GitHub OAuth access token
-        const githubToken = await getAccessToken(user.$id);
+        // Prefer installation token for reads; fall back to user OAuth token
+        const githubToken =
+          (await getInstallationToken(project.workspaceId)) ||
+          (await getAccessToken(user.$id));
 
         if (!githubToken) {
           return c.json(
             {
-              error: "GitHub account not connected. Cannot fetch issues.",
+              error: "GitHub not connected. Connect GitHub in workspace settings or sign in with GitHub.",
             },
             400,
           );
         }
 
-        const owner = await getAuthenticatedUser(githubToken);
-
-        if (!owner) {
-          return c.json({ error: "Failed to authenticate with GitHub" }, 500);
-        }
-
         const issuesFromGit = await listRepositoryIssues(
           githubToken,
-          owner.login,
+          project.owner,
           project.name,
           "all", // Get both open and closed issues for sync
         );

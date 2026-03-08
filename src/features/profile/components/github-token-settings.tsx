@@ -230,10 +230,11 @@ export const GithubTokenSettings = () => {
           </div>
         </div>
 
-        <div className="text-xs p-3 bg-muted rounded-md text-muted-foreground">
-          <strong>Note:</strong> Your token is stored securely and will be
-          validated with GitHub before saving. Never share your token with
-          anyone.
+        <div className="text-xs p-3 bg-blue-50 dark:bg-blue-950 rounded-md text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+          <strong>Tip:</strong> For better security, connect GitHub at the workspace
+          level via <strong>Workspace Settings → Connect GitHub</strong>. The GitHub App
+          integration automatically manages tokens and is required for real-time webhook sync.
+          This personal token is still used when you create or comment on issues/PRs.
         </div>
       </CardContent>
     </Card>

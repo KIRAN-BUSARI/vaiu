@@ -1,7 +1,7 @@
 "use client";
 import { useRef } from "react";
 import Image from "next/image";
-import { ImageIcon, Loader2 } from "lucide-react";
+import { ImageIcon, Loader2, Github } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,6 +29,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { useCreateProject } from "../api/use-create-project";
 import {
@@ -39,6 +46,7 @@ import {
 } from "../schemas";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAddExistingProject } from "../api/use-add-existing-project";
+import { useGetRepos } from "../api/use-get-repos";
 
 interface CreateProjectFormProps {
   onCancel?: () => void;
@@ -49,6 +57,7 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
   const router = useRouter();
   const { mutate, isPending } = useCreateProject();
   const { mutate: mutateEP, isPending: isPendingEP } = useAddExistingProject();
+  const { data: repos, isLoading: isLoadingRepos, error: reposError } = useGetRepos({ workspaceId });
   const newIconInputRef = useRef<HTMLInputElement>(null);
   const existingIconInputRef = useRef<HTMLInputElement>(null);
   const form1 = useForm<CreateProjectSchema>({
@@ -64,6 +73,7 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
     defaultValues: {
       image: "",
       projectLink: "",
+      repoFullName: "",
     },
   });
 
@@ -298,23 +308,71 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
             <Form {...form2}>
               <form onSubmit={form2.handleSubmit(onSubmitEp)}>
                 <div className="flex flex-col gap-y-4">
-                  <FormField
-                    control={form2.control}
-                    name="projectLink"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Github link</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder="Paste your github link here"
-                            className="border border-gray-200 dark:border-gray-400"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {repos && repos.length > 0 ? (
+                    <FormField
+                      control={form2.control}
+                      name="repoFullName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2">
+                            <Github className="h-4 w-4" />
+                            Select Repository
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value ?? ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="border border-gray-200 dark:border-gray-400">
+                                <SelectValue placeholder="Pick a repository..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {repos.map((repo) => (
+                                <SelectItem key={repo.id} value={repo.full_name}>
+                                  {repo.full_name}
+                                  {repo.private && (
+                                    <span className="ml-2 text-xs text-muted-foreground">
+                                      private
+                                    </span>
+                                  )}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ) : (
+                    <FormField
+                      control={form2.control}
+                      name="projectLink"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            {isLoadingRepos ? (
+                              <span className="inline-flex items-center gap-1">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Loading repositories...
+                              </span>
+                            ) : reposError ? (
+                              "GitHub link (connect GitHub in workspace settings for repo picker)"
+                            ) : (
+                              "GitHub link"
+                            )}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Paste your GitHub link here"
+                              className="border border-gray-200 dark:border-gray-400"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <div className="">
                     <FormField
                       control={form2.control}
