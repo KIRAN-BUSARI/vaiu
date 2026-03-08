@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { Github, CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { client } from "@/lib/rpc";
+import { useDisconnectGithub } from "../api/use-disconnect-github";
 import { Workspace } from "../types";
 
 interface GithubWorkspaceSettingsProps {
@@ -22,31 +20,12 @@ interface GithubWorkspaceSettingsProps {
 export const GithubWorkspaceSettings = ({
   workspace,
 }: GithubWorkspaceSettingsProps) => {
-  const queryClient = useQueryClient();
   const [isConnecting, setIsConnecting] = useState(false);
 
   const isConnected = !!workspace.githubInstallationId;
 
-  const { mutate: disconnect, isPending: isDisconnecting } = useMutation({
-    mutationFn: async () => {
-      const response = await client.api.v1.workspaces[":workspaceId"][
-        "github"
-      ]["disconnect"].$delete({
-        param: { workspaceId: workspace.$id },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to disconnect GitHub");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      toast.success("GitHub disconnected from workspace");
-      queryClient.invalidateQueries({ queryKey: ["workspace", workspace.$id] });
-    },
-    onError: () => {
-      toast.error("Failed to disconnect GitHub");
-    },
-  });
+  const { mutate: disconnect, isPending: isDisconnecting } =
+    useDisconnectGithub(workspace.$id);
 
   const handleConnect = () => {
     setIsConnecting(true);
