@@ -1,7 +1,6 @@
 import { ID, Query } from "node-appwrite";
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { setCookie } from "hono/cookie";
 
 import { sessionMiddleware } from "@/lib/session-middleware";
 import {
@@ -743,14 +742,7 @@ const app = new Hono()
       return c.json({ error: "GitHub App install URL not configured" }, 500);
     }
 
-    // Store workspaceId in a short-lived cookie for the callback to read
-    setCookie(c, "github_install_state", workspaceId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 600, // 10 minutes
-      path: "/",
-    });
-
+    // workspaceId is passed as state — GitHub echoes it back in the callback
     const redirectUrl = `${installUrl}?state=${encodeURIComponent(workspaceId)}`;
     return c.redirect(redirectUrl, 302);
   })
