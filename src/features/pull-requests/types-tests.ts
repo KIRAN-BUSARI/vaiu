@@ -81,9 +81,6 @@ export interface PersistedTestCase extends TestCase {
   $id: string;
   $createdAt: string;
   $updatedAt: string;
-  $collectionId: string;
-  $databaseId: string;
-  $permissions: string[];
   projectId: string;
   prNumber: number;
   scenarioId: string;

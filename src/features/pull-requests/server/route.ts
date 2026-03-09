@@ -98,10 +98,6 @@ const app = new Hono()
             $createdAt: pr.created_at,
             $updatedAt: pr.updated_at,
             $mergedAt: pr.merged_at,
-
-            $collectionId: "",
-            $databaseId: "",
-            $permissions: [],
           };
         });
 
@@ -462,7 +458,28 @@ const app = new Hono()
           ]
         );
 
-        return c.json({ data: tests.documents });
+        return c.json({
+          data: tests.documents.map((t) => ({
+            $id: t.$id,
+            $createdAt: t.$createdAt,
+            $updatedAt: t.$updatedAt,
+            projectId: t.projectId,
+            prNumber: t.prNumber,
+            scenarioId: t.scenarioId,
+            title: t.title,
+            description: t.description,
+            type: t.type,
+            targetFile: t.targetFile,
+            suggestedTestFile: t.suggestedTestFile,
+            testCode: t.testCode,
+            prerequisites: t.prerequisites,
+            priority: t.priority,
+            reasoning: t.reasoning,
+            edgeCases: t.edgeCases,
+            isCustom: t.isCustom,
+            isDeleted: t.isDeleted,
+          })),
+        });
       } catch (error) {
         console.error("Failed to fetch tests:", error);
         return c.json({ error: "Failed to fetch tests" }, 500);
@@ -529,7 +546,28 @@ const app = new Hono()
           }
         );
 
-        return c.json({ data: newTest });
+        return c.json({
+          data: {
+            $id: newTest.$id,
+            $createdAt: newTest.$createdAt,
+            $updatedAt: newTest.$updatedAt,
+            projectId: newTest.projectId,
+            prNumber: newTest.prNumber,
+            scenarioId: newTest.scenarioId,
+            title: newTest.title,
+            description: newTest.description,
+            type: newTest.type,
+            targetFile: newTest.targetFile,
+            suggestedTestFile: newTest.suggestedTestFile,
+            testCode: newTest.testCode,
+            prerequisites: newTest.prerequisites,
+            priority: newTest.priority,
+            reasoning: newTest.reasoning,
+            edgeCases: newTest.edgeCases,
+            isCustom: newTest.isCustom,
+            isDeleted: newTest.isDeleted,
+          },
+        });
       } catch (error) {
         console.error("Failed to create test:", error);
         return c.json({ error: "Failed to create test" }, 500);
@@ -592,14 +630,35 @@ const app = new Hono()
           }
         }
 
-        const updatedTest = await databases.updateDocument(
+        const updatedTest = await databases.updateDocument<PersistedTestCase>(
           DATABASE_ID,
           AI_TESTS_ID,
           testId,
           updates
         );
 
-        return c.json({ data: updatedTest });
+        return c.json({
+          data: {
+            $id: updatedTest.$id,
+            $createdAt: updatedTest.$createdAt,
+            $updatedAt: updatedTest.$updatedAt,
+            projectId: updatedTest.projectId,
+            prNumber: updatedTest.prNumber,
+            scenarioId: updatedTest.scenarioId,
+            title: updatedTest.title,
+            description: updatedTest.description,
+            type: updatedTest.type,
+            targetFile: updatedTest.targetFile,
+            suggestedTestFile: updatedTest.suggestedTestFile,
+            testCode: updatedTest.testCode,
+            prerequisites: updatedTest.prerequisites,
+            priority: updatedTest.priority,
+            reasoning: updatedTest.reasoning,
+            edgeCases: updatedTest.edgeCases,
+            isCustom: updatedTest.isCustom,
+            isDeleted: updatedTest.isDeleted,
+          },
+        });
       } catch (error) {
         console.error("Failed to update test:", error);
         return c.json({ error: "Failed to update test" }, 500);

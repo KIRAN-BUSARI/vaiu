@@ -63,14 +63,20 @@ const app = new Hono()
         const populatedMembers = members.documents.map((member) => {
           const user = usersMap.get(member.userId);
           return {
-            ...member,
+            $id: member.$id,
+            $createdAt: member.$createdAt,
+            $updatedAt: member.$updatedAt,
+            workspaceId: member.workspaceId,
+            projectId: member.projectId,
+            userId: member.userId,
+            role: member.role,
             name: user?.name || user?.email || "Unknown User",
             email: user?.email || "unknown@example.com",
           };
         });
         return c.json({
           data: {
-            ...members,
+            total: members.total,
             documents: populatedMembers,
           },
         });
@@ -145,7 +151,13 @@ const app = new Hono()
         const populatedMembers = members.documents.map((member) => {
           const user = usersMap.get(member.userId);
           return {
-            ...member,
+            $id: member.$id,
+            $createdAt: member.$createdAt,
+            $updatedAt: member.$updatedAt,
+            workspaceId: member.workspaceId,
+            projectId: member.projectId,
+            userId: member.userId,
+            role: member.role,
             name: user?.name || user?.email || "Unknown User",
             email: user?.email || "unknown@example.com",
           };
@@ -153,7 +165,7 @@ const app = new Hono()
 
         return c.json({
           data: {
-            ...members,
+            total: members.total,
             documents: populatedMembers,
           },
         });
@@ -368,7 +380,13 @@ const app = new Hono()
 
         return c.json({
           data: {
-            ...updatedMember,
+            $id: updatedMember.$id,
+            $createdAt: updatedMember.$createdAt,
+            $updatedAt: updatedMember.$updatedAt,
+            workspaceId: updatedMember.workspaceId,
+            projectId: updatedMember.projectId,
+            userId: updatedMember.userId,
+            role: updatedMember.role,
             message: "Member role updated successfully",
           },
         });
@@ -422,7 +440,13 @@ const app = new Hono()
 
           return c.json({
             data: {
-              ...updatedMember,
+              $id: updatedMember.$id,
+              $createdAt: updatedMember.$createdAt,
+              $updatedAt: updatedMember.$updatedAt,
+              workspaceId: updatedMember.workspaceId,
+              projectId: updatedMember.projectId,
+              userId: updatedMember.userId,
+              role: updatedMember.role,
               message: "User promoted to super admin successfully",
             },
           });
@@ -442,7 +466,13 @@ const app = new Hono()
 
           return c.json({
             data: {
-              ...newMember,
+              $id: newMember.$id,
+              $createdAt: newMember.$createdAt,
+              $updatedAt: newMember.$updatedAt,
+              workspaceId: newMember.workspaceId,
+              projectId: newMember.projectId,
+              userId: newMember.userId,
+              role: newMember.role,
               message: "User assigned super admin role successfully",
             },
           });
@@ -509,7 +539,13 @@ const app = new Hono()
 
         return c.json({
           data: {
-            ...updatedMember,
+            $id: updatedMember.$id,
+            $createdAt: updatedMember.$createdAt,
+            $updatedAt: updatedMember.$updatedAt,
+            workspaceId: updatedMember.workspaceId,
+            projectId: updatedMember.projectId,
+            userId: updatedMember.userId,
+            role: updatedMember.role,
             message: "Super admin role removed successfully",
           },
         });
@@ -558,7 +594,13 @@ const app = new Hono()
         const populatedSuperAdmins = superAdmins.documents.map((member) => {
           const user = usersMap.get(member.userId);
           return {
-            ...member,
+            $id: member.$id,
+            $createdAt: member.$createdAt,
+            $updatedAt: member.$updatedAt,
+            workspaceId: member.workspaceId,
+            projectId: member.projectId,
+            userId: member.userId,
+            role: member.role,
             name: user?.name || user?.email || "Unknown User",
             email: user?.email || "unknown@example.com",
           };
@@ -566,8 +608,8 @@ const app = new Hono()
 
         return c.json({
           data: {
-            documents: populatedSuperAdmins,
             total: superAdmins.total,
+            documents: populatedSuperAdmins,
           },
         });
       } catch (error) {

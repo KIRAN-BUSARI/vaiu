@@ -134,7 +134,21 @@ const app = new Hono()
           projectId: [...currentProjectIds, project.$id],
         });
 
-        return c.json({ data: project, repo });
+        return c.json({
+          data: {
+            $id: project.$id,
+            $createdAt: project.$createdAt,
+            $updatedAt: project.$updatedAt,
+            name: project.name,
+            imageUrl: project.imageUrl,
+            workspaceId: project.workspaceId,
+            inviteCode: project.inviteCode,
+            owner: project.owner,
+            projectAdmin: project.projectAdmin,
+            projectCollaborators: project.projectCollaborators,
+          },
+          repo,
+        });
       }
     },
   )
@@ -275,7 +289,21 @@ const app = new Hono()
         projectId: [...currentProjectIds, project.$id],
       });
 
-      return c.json({ data: project, issues: data });
+      return c.json({
+        data: {
+          $id: project.$id,
+          $createdAt: project.$createdAt,
+          $updatedAt: project.$updatedAt,
+          name: project.name,
+          imageUrl: project.imageUrl,
+          workspaceId: project.workspaceId,
+          inviteCode: project.inviteCode,
+          owner: project.owner,
+          projectAdmin: project.projectAdmin,
+          projectCollaborators: project.projectCollaborators,
+        },
+        issues: data,
+      });
     },
   )
   // ── List repos accessible to the workspace GitHub App installation ──────────
@@ -350,7 +378,23 @@ const app = new Hono()
               Query.orderDesc("$createdAt"),
             ],
           );
-          return c.json({ data: projects });
+          return c.json({
+            data: {
+              total: projects.total,
+              documents: projects.documents.map((p) => ({
+                $id: p.$id,
+                $createdAt: p.$createdAt,
+                $updatedAt: p.$updatedAt,
+                name: p.name,
+                imageUrl: p.imageUrl,
+                workspaceId: p.workspaceId,
+                inviteCode: p.inviteCode,
+                owner: p.owner,
+                projectAdmin: p.projectAdmin,
+                projectCollaborators: p.projectCollaborators,
+              })),
+            },
+          });
         }
 
         const member = await getMember({
@@ -373,7 +417,23 @@ const app = new Hono()
               Query.orderDesc("$createdAt"),
             ],
           );
-          return c.json({ data: projects });
+          return c.json({
+            data: {
+              total: projects.total,
+              documents: projects.documents.map((p) => ({
+                $id: p.$id,
+                $createdAt: p.$createdAt,
+                $updatedAt: p.$updatedAt,
+                name: p.name,
+                imageUrl: p.imageUrl,
+                workspaceId: p.workspaceId,
+                inviteCode: p.inviteCode,
+                owner: p.owner,
+                projectAdmin: p.projectAdmin,
+                projectCollaborators: p.projectCollaborators,
+              })),
+            },
+          });
         }
 
         // Regular members can only see projects they're assigned to
@@ -399,8 +459,19 @@ const app = new Hono()
 
         return c.json({
           data: {
-            documents: filteredProjects,
             total: filteredProjects.length,
+            documents: filteredProjects.map((p) => ({
+              $id: p.$id,
+              $createdAt: p.$createdAt,
+              $updatedAt: p.$updatedAt,
+              name: p.name,
+              imageUrl: p.imageUrl,
+              workspaceId: p.workspaceId,
+              inviteCode: p.inviteCode,
+              owner: p.owner,
+              projectAdmin: p.projectAdmin,
+              projectCollaborators: p.projectCollaborators,
+            })),
           },
         });
       } catch (error) {
@@ -436,7 +507,20 @@ const app = new Hono()
       }
     }
 
-    return c.json({ data: project });
+    return c.json({
+      data: {
+        $id: project.$id,
+        $createdAt: project.$createdAt,
+        $updatedAt: project.$updatedAt,
+        name: project.name,
+        imageUrl: project.imageUrl,
+        workspaceId: project.workspaceId,
+        inviteCode: project.inviteCode,
+        owner: project.owner,
+        projectAdmin: project.projectAdmin,
+        projectCollaborators: project.projectCollaborators,
+      },
+    });
   })
   .get("/:projectId/analytics", sessionMiddleware, async (c) => {
     const databases = c.get("databases");
@@ -646,7 +730,7 @@ const app = new Hono()
       } else {
         uploadedImage = image;
       }
-      const updatedProject = await databases.updateDocument(
+      const updatedProject = await databases.updateDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
         projectId,
@@ -656,7 +740,20 @@ const app = new Hono()
         },
       );
 
-      return c.json({ data: updatedProject });
+      return c.json({
+        data: {
+          $id: updatedProject.$id,
+          $createdAt: updatedProject.$createdAt,
+          $updatedAt: updatedProject.$updatedAt,
+          name: updatedProject.name,
+          imageUrl: updatedProject.imageUrl,
+          workspaceId: updatedProject.workspaceId,
+          inviteCode: updatedProject.inviteCode,
+          owner: updatedProject.owner,
+          projectAdmin: updatedProject.projectAdmin,
+          projectCollaborators: updatedProject.projectCollaborators,
+        },
+      });
     },
   )
   .delete("/:projectId", sessionMiddleware, async (c) => {
@@ -987,7 +1084,7 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      const project = await databases.updateDocument(
+      const project = await databases.updateDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
         projectId,
@@ -995,7 +1092,20 @@ const app = new Hono()
           inviteCode: generateInviteCode(INVITECODE_LENGTH),
         },
       );
-      return c.json({ data: project });
+      return c.json({
+        data: {
+          $id: project.$id,
+          $createdAt: project.$createdAt,
+          $updatedAt: project.$updatedAt,
+          name: project.name,
+          imageUrl: project.imageUrl,
+          workspaceId: project.workspaceId,
+          inviteCode: project.inviteCode,
+          owner: project.owner,
+          projectAdmin: project.projectAdmin,
+          projectCollaborators: project.projectCollaborators,
+        },
+      });
     },
   )
   .delete("/:projectId/members/:memberId", sessionMiddleware, async (c) => {

@@ -37,7 +37,17 @@ const app = new Hono()
         },
       );
 
-      return c.json({ data: room });
+      return c.json({
+        data: {
+          $id: room.$id,
+          $createdAt: room.$createdAt,
+          $updatedAt: room.$updatedAt,
+          name: room.name,
+          roomType: room.roomType,
+          workspaceId: room.workspaceId,
+          projectId: room.projectId,
+        },
+      });
     } catch (error) {
       console.error("Error creating room:", error);
       return c.json({ error: "Failed to create room" }, 500);
@@ -79,7 +89,20 @@ const app = new Hono()
         queryParams,
       );
 
-      return c.json({ data: rooms });
+      return c.json({
+        data: {
+          total: rooms.total,
+          documents: rooms.documents.map((r) => ({
+            $id: r.$id,
+            $createdAt: r.$createdAt,
+            $updatedAt: r.$updatedAt,
+            name: r.name,
+            roomType: r.roomType,
+            workspaceId: r.workspaceId,
+            projectId: r.projectId,
+          })),
+        },
+      });
     },
   )
   .get("/:roomId", sessionMiddleware, async (c) => {
@@ -102,7 +125,17 @@ const app = new Hono()
     if (!member) {
       return c.json({ error: "Unauthorized" }, 401);
     }
-    return c.json({ data: room });
+    return c.json({
+      data: {
+        $id: room.$id,
+        $createdAt: room.$createdAt,
+        $updatedAt: room.$updatedAt,
+        name: room.name,
+        roomType: room.roomType,
+        workspaceId: room.workspaceId,
+        projectId: room.projectId,
+      },
+    });
   })
   .delete("/:roomId", sessionMiddleware, async (c) => {
     const databases = c.get("databases");
