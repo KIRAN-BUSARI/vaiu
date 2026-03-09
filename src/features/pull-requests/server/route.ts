@@ -19,7 +19,7 @@ import {
 import { createPrSchema } from "../schemas";
 import { ID, Query, type Databases } from "node-appwrite";
 import { AIReview } from "../types-ai";
-import { AITestGeneration, PersistedTestCase, TestType } from "../types-tests";
+import { AITestGeneration, TestStatus, TestType } from "../types-tests";
 import { analyzeWithGemini, PRAnalysisInput, generateTestCases } from "@/lib/ai-service";
 
 const app = new Hono()
@@ -371,7 +371,7 @@ const app = new Hono()
         }
 
         // Check if tests were recently generated (within last 5 minutes) to prevent spamming
-        const recentTests = await databases.listDocuments<PersistedTestCase>(
+        const recentTests = await databases.listDocuments(
           DATABASE_ID,
           AI_TESTS_ID,
           [
@@ -448,7 +448,7 @@ const app = new Hono()
           }
         }
 
-        const tests = await databases.listDocuments<PersistedTestCase>(
+        const tests = await databases.listDocuments(
           DATABASE_ID,
           AI_TESTS_ID,
           [
@@ -463,6 +463,7 @@ const app = new Hono()
             $id: t.$id,
             $createdAt: t.$createdAt,
             $updatedAt: t.$updatedAt,
+            id: t.$id,
             projectId: t.projectId,
             prNumber: t.prNumber,
             scenarioId: t.scenarioId,
@@ -478,6 +479,7 @@ const app = new Hono()
             edgeCases: t.edgeCases,
             isCustom: t.isCustom,
             isDeleted: t.isDeleted,
+            status: t.status,
           })),
         });
       } catch (error) {
@@ -543,6 +545,7 @@ const app = new Hono()
             ...testData,
             isCustom: true,
             isDeleted: false,
+            status: TestStatus.UNTESTED,
           }
         );
 
@@ -551,6 +554,7 @@ const app = new Hono()
             $id: newTest.$id,
             $createdAt: newTest.$createdAt,
             $updatedAt: newTest.$updatedAt,
+            id: newTest.$id,
             projectId: newTest.projectId,
             prNumber: newTest.prNumber,
             scenarioId: newTest.scenarioId,
@@ -566,6 +570,7 @@ const app = new Hono()
             edgeCases: newTest.edgeCases,
             isCustom: newTest.isCustom,
             isDeleted: newTest.isDeleted,
+            status: newTest.status,
           },
         });
       } catch (error) {
@@ -588,6 +593,7 @@ const app = new Hono()
       priority: z.enum(["low", "medium", "high", "critical"]).optional(),
       reasoning: z.string().optional(),
       edgeCases: z.array(z.string()).optional(),
+      status: z.nativeEnum(TestStatus).optional(),
     })),
     async (c) => {
       const databases = c.get("databases");
@@ -596,7 +602,7 @@ const app = new Hono()
       const updates = c.req.valid("json");
 
       try {
-        const test = await databases.getDocument<PersistedTestCase>(
+        const test = await databases.getDocument(
           DATABASE_ID,
           AI_TESTS_ID,
           testId
@@ -630,7 +636,7 @@ const app = new Hono()
           }
         }
 
-        const updatedTest = await databases.updateDocument<PersistedTestCase>(
+        const updatedTest = await databases.updateDocument(
           DATABASE_ID,
           AI_TESTS_ID,
           testId,
@@ -642,6 +648,7 @@ const app = new Hono()
             $id: updatedTest.$id,
             $createdAt: updatedTest.$createdAt,
             $updatedAt: updatedTest.$updatedAt,
+            id: updatedTest.$id,
             projectId: updatedTest.projectId,
             prNumber: updatedTest.prNumber,
             scenarioId: updatedTest.scenarioId,
@@ -657,6 +664,7 @@ const app = new Hono()
             edgeCases: updatedTest.edgeCases,
             isCustom: updatedTest.isCustom,
             isDeleted: updatedTest.isDeleted,
+            status: updatedTest.status,
           },
         });
       } catch (error) {
@@ -674,7 +682,7 @@ const app = new Hono()
       const { projectId, testId } = c.req.param();
 
       try {
-        const test = await databases.getDocument<PersistedTestCase>(
+        const test = await databases.getDocument(
           DATABASE_ID,
           AI_TESTS_ID,
           testId
@@ -942,9 +950,6 @@ async function persistGeneratedTests(
           title: testCase.title,
           description: testCase.description,
           type: testCase.type,
-          targetFile: testCase.targetFile,
-          suggestedTestFile: testCase.suggestedTestFile,
-          testCode: testCase.testCode,
           prerequisites: testCase.prerequisites,
           priority: testCase.priority,
           reasoning: testCase.reasoning,

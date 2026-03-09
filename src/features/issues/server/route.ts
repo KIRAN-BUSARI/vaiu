@@ -304,30 +304,30 @@ const app = new Hono()
           issueType: issue.issueType,
           project: project
             ? {
-                $id: project.$id,
-                $createdAt: project.$createdAt,
-                $updatedAt: project.$updatedAt,
-                name: project.name,
-                imageUrl: project.imageUrl,
-                workspaceId: project.workspaceId,
-                inviteCode: project.inviteCode,
-                owner: project.owner,
-                projectAdmin: project.projectAdmin,
-                projectCollaborators: project.projectCollaborators,
-              }
+              $id: project.$id,
+              $createdAt: project.$createdAt,
+              $updatedAt: project.$updatedAt,
+              name: project.name,
+              imageUrl: project.imageUrl,
+              workspaceId: project.workspaceId,
+              inviteCode: project.inviteCode,
+              owner: project.owner,
+              projectAdmin: project.projectAdmin,
+              projectCollaborators: project.projectCollaborators,
+            }
             : undefined,
           assignee: assignee
             ? {
-                $id: assignee.$id,
-                $createdAt: assignee.$createdAt,
-                $updatedAt: assignee.$updatedAt,
-                workspaceId: assignee.workspaceId,
-                projectId: assignee.projectId,
-                userId: assignee.userId,
-                role: assignee.role,
-                name: assignee.name,
-                email: assignee.email,
-              }
+              $id: assignee.$id,
+              $createdAt: assignee.$createdAt,
+              $updatedAt: assignee.$updatedAt,
+              workspaceId: assignee.workspaceId,
+              projectId: assignee.projectId,
+              userId: assignee.userId,
+              role: assignee.role,
+              name: assignee.name,
+              email: assignee.email,
+            }
             : undefined,
         };
       });
@@ -346,18 +346,18 @@ const app = new Hono()
     zValidator("json", createTaskSchema),
     async (c) => {
       try {
-      const databases = c.get("databases");
-      const user = c.get("user");
-      const {
-        name,
-        description,
-        status,
-        dueDate,
-        projectId,
-        assigneeId,
-        workspaceId,
-        issueType,
-      } = c.req.valid("json");
+        const databases = c.get("databases");
+        const user = c.get("user");
+        const {
+          name,
+          description,
+          status,
+          dueDate,
+          projectId,
+          assigneeId,
+          workspaceId,
+          issueType,
+        } = c.req.valid("json");
 
         const projects = await databases.listDocuments(
           DATABASE_ID,
@@ -826,30 +826,30 @@ const app = new Hono()
         issueType: issue.issueType,
         project: project
           ? {
-              $id: project.$id,
-              $createdAt: project.$createdAt,
-              $updatedAt: project.$updatedAt,
-              name: project.name,
-              imageUrl: project.imageUrl,
-              workspaceId: project.workspaceId,
-              inviteCode: project.inviteCode,
-              owner: project.owner,
-              projectAdmin: project.projectAdmin,
-              projectCollaborators: project.projectCollaborators,
-            }
+            $id: project.$id,
+            $createdAt: project.$createdAt,
+            $updatedAt: project.$updatedAt,
+            name: project.name,
+            imageUrl: project.imageUrl,
+            workspaceId: project.workspaceId,
+            inviteCode: project.inviteCode,
+            owner: project.owner,
+            projectAdmin: project.projectAdmin,
+            projectCollaborators: project.projectCollaborators,
+          }
           : undefined,
         assignee: assignee
           ? {
-              $id: assignee.$id,
-              $createdAt: assignee.$createdAt,
-              $updatedAt: assignee.$updatedAt,
-              workspaceId: assignee.workspaceId,
-              projectId: assignee.projectId,
-              userId: assignee.userId,
-              role: assignee.role,
-              name: assignee.name,
-              email: assignee.email,
-            }
+            $id: assignee.$id,
+            $createdAt: assignee.$createdAt,
+            $updatedAt: assignee.$updatedAt,
+            workspaceId: assignee.workspaceId,
+            projectId: assignee.projectId,
+            userId: assignee.userId,
+            role: assignee.role,
+            name: assignee.name,
+            email: assignee.email,
+          }
           : undefined,
       },
     });

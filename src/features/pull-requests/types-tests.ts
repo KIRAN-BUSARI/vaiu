@@ -9,14 +9,20 @@ export enum TestType {
   COMPONENT = "component",
 }
 
+export enum TestStatus {
+  UNTESTED = "untested",
+  IN_PROGRESS = "in_progress",
+  PASSED = "passed",
+  FAILED = "failed",
+  BLOCKED = "blocked",
+  SKIPPED = "skipped",
+}
+
 export interface TestCase {
   id: string;
   title: string;
   description: string;
   type: TestType;
-  targetFile: string;
-  suggestedTestFile: string;
-  testCode: string;
   prerequisites: string[];
   priority: "low" | "medium" | "high" | "critical";
   reasoning: string;
@@ -48,10 +54,8 @@ export interface AITestGeneration {
   prTitle: string;
   prUrl: string;
   projectId: string;
-
   summary: TestGenerationSummary;
   scenarios: TestScenario[];
-
   context: {
     filesChanged: Array<{
       filename: string;
@@ -63,7 +67,6 @@ export interface AITestGeneration {
     prDescription: string;
     author: string;
   };
-
   createdAt: string;
   generationVersion: string;
 }
@@ -76,7 +79,6 @@ export interface TestGenerationStatus {
   error?: string;
 }
 
-// Persisted test types
 export interface PersistedTestCase extends TestCase {
   $id: string;
   $createdAt: string;
@@ -84,8 +86,12 @@ export interface PersistedTestCase extends TestCase {
   projectId: string;
   prNumber: number;
   scenarioId: string;
-  isCustom: boolean; // User created vs AI generated
+  targetFile: string;
+  suggestedTestFile: string;
+  testCode: string;
+  isCustom: boolean;
   isDeleted: boolean;
+  status: TestStatus;
 }
 
 export interface TestManagementData {
