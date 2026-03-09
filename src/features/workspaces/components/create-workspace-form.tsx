@@ -22,7 +22,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 import { useCreateWorkspace } from "../api/use-create-workspace";
-
 import { type CreateWorkspaceSchema, createWorkspaceSchema } from "../schemas";
 
 interface CreateWorkspaceFormProps {
@@ -37,8 +36,10 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
     resolver: zodResolver(createWorkspaceSchema),
     defaultValues: {
       name: "",
+      type: "personal",
     },
   });
+
   const onSubmit = (values: CreateWorkspaceSchema) => {
     const finalValues = {
       ...values,
@@ -76,6 +77,31 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <div className="flex flex-col gap-y-6">
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["personal", "organization"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => field.onChange(t)}
+                          className={cn(
+                            "rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
+                            field.value === t
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-slate-200 bg-slate-100 text-muted-foreground hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
+                          )}
+                        >
+                          {t === "personal" ? "Personal" : "Organization"}
+                        </button>
+                      ))}
+                    </div>
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="name"

@@ -191,7 +191,7 @@ const app = new Hono()
         const storage = c.get("storage");
         const user = c.get("user");
 
-        const { name, image } = c.req.valid("form");
+        const { name, image, type } = c.req.valid("form");
 
         let uploadedImage: string | undefined;
         if (image instanceof File) {
@@ -231,6 +231,7 @@ const app = new Hono()
               userId: user.$id,
               imageUrl: uploadedImage,
               inviteCode: generateInviteCode(INVITECODE_LENGTH),
+              type: type ?? "personal",
             },
           );
 
