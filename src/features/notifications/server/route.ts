@@ -19,24 +19,7 @@ const app = new Hono()
       [Query.equal("userId", user.$id), Query.orderDesc("$createdAt")]
     );
 
-    return c.json({
-      data: {
-        total: notifications.total,
-        documents: notifications.documents.map((n) => ({
-          $id: n.$id,
-          $createdAt: n.$createdAt,
-          $updatedAt: n.$updatedAt,
-          title: n.title,
-          body: n.body,
-          workspaceId: n.workspaceId,
-          projectId: n.projectId,
-          entityId: n.entityId,
-          type: n.type,
-          isRead: n.isRead,
-          userId: n.userId,
-        })),
-      },
-    });
+    return c.json({ data: notifications });
   })
   .post("/webhook",sessionMiddleware, async (c) => {
     const secret = process.env.GITHUB_WEBHOOK_SECRET || "";
@@ -205,21 +188,7 @@ const app = new Hono()
       { isRead: true }
     );
 
-    return c.json({
-      data: {
-        $id: updatedNotification.$id,
-        $createdAt: updatedNotification.$createdAt,
-        $updatedAt: updatedNotification.$updatedAt,
-        title: updatedNotification.title,
-        body: updatedNotification.body,
-        workspaceId: updatedNotification.workspaceId,
-        projectId: updatedNotification.projectId,
-        entityId: updatedNotification.entityId,
-        type: updatedNotification.type,
-        isRead: updatedNotification.isRead,
-        userId: updatedNotification.userId,
-      },
-    });
+    return c.json({ data: updatedNotification });
   });
 
 export default app;

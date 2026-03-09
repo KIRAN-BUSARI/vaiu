@@ -86,9 +86,6 @@ export interface PersistedTestCase extends TestCase {
   projectId: string;
   prNumber: number;
   scenarioId: string;
-  targetFile: string;
-  suggestedTestFile: string;
-  testCode: string;
   isCustom: boolean;
   isDeleted: boolean;
   status: TestStatus;

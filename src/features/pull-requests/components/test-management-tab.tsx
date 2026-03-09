@@ -419,9 +419,7 @@ interface TestFormData {
     title: string;
     description: string;
     type: TestType;
-    targetFile: string;
-    suggestedTestFile: string;
-    testCode: string;
+    status: TestStatus;
     prerequisites: string[];
     priority: "low" | "medium" | "high" | "critical";
     reasoning: string;
@@ -441,9 +439,7 @@ function TestFormDialog({ open, onOpenChange, test, onSubmit }: TestFormDialogPr
         title: test?.title || "",
         description: test?.description || "",
         type: test?.type || TestType.UNIT,
-        targetFile: test?.targetFile || "",
-        suggestedTestFile: test?.suggestedTestFile || "",
-        testCode: test?.testCode || "",
+        status: test?.status || TestStatus.UNTESTED,
         prerequisites: test?.prerequisites?.join(", ") || "",
         priority: test?.priority || "medium",
         reasoning: test?.reasoning || "",
@@ -459,9 +455,7 @@ function TestFormDialog({ open, onOpenChange, test, onSubmit }: TestFormDialogPr
                 title: formData.title,
                 description: formData.description,
                 type: formData.type,
-                targetFile: formData.targetFile,
-                suggestedTestFile: formData.suggestedTestFile,
-                testCode: formData.testCode,
+                status: formData.status,
                 prerequisites: formData.prerequisites.split(",").map((p) => p.trim()).filter(Boolean),
                 priority: formData.priority as "low" | "medium" | "high" | "critical",
                 reasoning: formData.reasoning,

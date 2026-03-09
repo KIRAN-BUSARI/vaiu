@@ -79,24 +79,7 @@ const app = new Hono()
       WORKSPACE_ID,
       [Query.orderDesc("$createdAt"), Query.contains("$id", workspaceIds)],
     );
-    return c.json({
-      data: {
-        total: workspaces.total,
-        documents: workspaces.documents.map((w) => ({
-          $id: w.$id,
-          $createdAt: w.$createdAt,
-          $updatedAt: w.$updatedAt,
-          name: w.name,
-          imageUrl: w.imageUrl,
-          inviteCode: w.inviteCode,
-          userId: w.userId,
-          type: w.type,
-          githubInstallationId: w.githubInstallationId,
-          githubAccountLogin: w.githubAccountLogin,
-          githubAccountType: w.githubAccountType,
-        })),
-      },
-    });
+    return c.json({ data: workspaces });
   })
   .get("/:workspaceId", sessionMiddleware, async (c) => {
     const user = c.get("user");
@@ -126,21 +109,7 @@ const app = new Hono()
         workspaceId,
       );
 
-      return c.json({
-        data: {
-          $id: workspace.$id,
-          $createdAt: workspace.$createdAt,
-          $updatedAt: workspace.$updatedAt,
-          name: workspace.name,
-          imageUrl: workspace.imageUrl,
-          inviteCode: workspace.inviteCode,
-          userId: workspace.userId,
-          type: workspace.type,
-          githubInstallationId: workspace.githubInstallationId,
-          githubAccountLogin: workspace.githubAccountLogin,
-          githubAccountType: workspace.githubAccountType,
-        },
-      });
+      return c.json({ data: workspace });
     } catch (error: unknown) {
       const appwriteError = error as {
         code?: number;
@@ -482,21 +451,7 @@ const app = new Hono()
         inviteCode: generateInviteCode(INVITECODE_LENGTH),
       },
     );
-    return c.json({
-      data: {
-        $id: workspace.$id,
-        $createdAt: workspace.$createdAt,
-        $updatedAt: workspace.$updatedAt,
-        name: workspace.name,
-        imageUrl: workspace.imageUrl,
-        inviteCode: workspace.inviteCode,
-        userId: workspace.userId,
-        type: workspace.type,
-        githubInstallationId: workspace.githubInstallationId,
-        githubAccountLogin: workspace.githubAccountLogin,
-        githubAccountType: workspace.githubAccountType,
-      },
-    });
+    return c.json({ data: workspace });
   })
   .get("/:workspaceId/analytics", sessionMiddleware, async (c) => {
     const databases = c.get("databases");

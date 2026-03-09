@@ -24,20 +24,7 @@ const app = new Hono()
       return c.json({ error: "Unauthorized" }, 401);
     }
 
-    return c.json({
-      data: {
-        $id: user.$id,
-        $createdAt: user.$createdAt,
-        $updatedAt: user.$updatedAt,
-        name: user.name,
-        email: user.email,
-        emailVerification: user.emailVerification,
-        phone: user.phone,
-        phoneVerification: user.phoneVerification,
-        prefs: user.prefs,
-        labels: user.labels,
-      },
-    });
+    return c.json({ data: user });
   })
   .post("/login", zValidator("json", loginSchema), async (c) => {
     try {

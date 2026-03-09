@@ -289,52 +289,15 @@ const app = new Hono()
           (assignee) => assignee.$id === issue.assigneeId,
         );
         return {
-          $id: issue.$id,
-          $createdAt: issue.$createdAt,
-          $updatedAt: issue.$updatedAt,
-          name: issue.name,
-          status: issue.status,
-          assigneeId: issue.assigneeId,
-          workspaceId: issue.workspaceId,
-          projectId: issue.projectId,
-          position: issue.position,
-          dueDate: issue.dueDate,
-          description: issue.description,
-          number: issue.number,
-          issueType: issue.issueType,
-          project: project
-            ? {
-              $id: project.$id,
-              $createdAt: project.$createdAt,
-              $updatedAt: project.$updatedAt,
-              name: project.name,
-              imageUrl: project.imageUrl,
-              workspaceId: project.workspaceId,
-              inviteCode: project.inviteCode,
-              owner: project.owner,
-              projectAdmin: project.projectAdmin,
-              projectCollaborators: project.projectCollaborators,
-            }
-            : undefined,
-          assignee: assignee
-            ? {
-              $id: assignee.$id,
-              $createdAt: assignee.$createdAt,
-              $updatedAt: assignee.$updatedAt,
-              workspaceId: assignee.workspaceId,
-              projectId: assignee.projectId,
-              userId: assignee.userId,
-              role: assignee.role,
-              name: assignee.name,
-              email: assignee.email,
-            }
-            : undefined,
+          ...issue,
+          project,
+          assignee,
         };
       });
 
       return c.json({
         data: {
-          total: issues.total,
+          ...issues,
           documents: populatedTask,
         },
       });
@@ -476,23 +439,8 @@ const app = new Hono()
             .catch(() => ({ documents: [] as Issue[] }));
 
           if (existingByNumber.documents.length > 0) {
-            const existing = existingByNumber.documents[0];
             return c.json({
-              data: {
-                $id: existing.$id,
-                $createdAt: existing.$createdAt,
-                $updatedAt: existing.$updatedAt,
-                name: existing.name,
-                status: existing.status,
-                assigneeId: existing.assigneeId,
-                workspaceId: existing.workspaceId,
-                projectId: existing.projectId,
-                position: existing.position,
-                dueDate: existing.dueDate,
-                description: existing.description,
-                number: existing.number,
-                issueType: existing.issueType,
-              },
+              data: existingByNumber.documents[0],
               issue: issueInGit,
             });
           }
@@ -516,24 +464,7 @@ const app = new Hono()
           },
         );
 
-        return c.json({
-          data: {
-            $id: issue.$id,
-            $createdAt: issue.$createdAt,
-            $updatedAt: issue.$updatedAt,
-            name: issue.name,
-            status: issue.status,
-            assigneeId: issue.assigneeId,
-            workspaceId: issue.workspaceId,
-            projectId: issue.projectId,
-            position: issue.position,
-            dueDate: issue.dueDate,
-            description: issue.description,
-            number: issue.number,
-            issueType: issue.issueType,
-          },
-          issue: issueInGit,
-        });
+        return c.json({ data: issue, issue: issueInGit });
       } catch (error) {
         console.error("Error:", error);
         if (error instanceof Error) {
@@ -669,23 +600,7 @@ const app = new Hono()
         }
       }
 
-      return c.json({
-        data: {
-          $id: issue.$id,
-          $createdAt: issue.$createdAt,
-          $updatedAt: issue.$updatedAt,
-          name: issue.name,
-          status: issue.status,
-          assigneeId: issue.assigneeId,
-          workspaceId: issue.workspaceId,
-          projectId: issue.projectId,
-          position: issue.position,
-          dueDate: issue.dueDate,
-          description: issue.description,
-          number: issue.number,
-          issueType: issue.issueType,
-        },
-      });
+      return c.json({ data: issue });
     },
   )
   .get("/:issueId", sessionMiddleware, async (c) => {
@@ -811,46 +726,9 @@ const app = new Hono()
 
     return c.json({
       data: {
-        $id: issue.$id,
-        $createdAt: issue.$createdAt,
-        $updatedAt: issue.$updatedAt,
-        name: issue.name,
-        status: issue.status,
-        assigneeId: issue.assigneeId,
-        workspaceId: issue.workspaceId,
-        projectId: issue.projectId,
-        position: issue.position,
-        dueDate: issue.dueDate,
-        description: issue.description,
-        number: issue.number,
-        issueType: issue.issueType,
-        project: project
-          ? {
-            $id: project.$id,
-            $createdAt: project.$createdAt,
-            $updatedAt: project.$updatedAt,
-            name: project.name,
-            imageUrl: project.imageUrl,
-            workspaceId: project.workspaceId,
-            inviteCode: project.inviteCode,
-            owner: project.owner,
-            projectAdmin: project.projectAdmin,
-            projectCollaborators: project.projectCollaborators,
-          }
-          : undefined,
-        assignee: assignee
-          ? {
-            $id: assignee.$id,
-            $createdAt: assignee.$createdAt,
-            $updatedAt: assignee.$updatedAt,
-            workspaceId: assignee.workspaceId,
-            projectId: assignee.projectId,
-            userId: assignee.userId,
-            role: assignee.role,
-            name: assignee.name,
-            email: assignee.email,
-          }
-          : undefined,
+        ...issue,
+        project,
+        assignee,
       },
     });
   })
@@ -1024,23 +902,7 @@ const app = new Hono()
         }),
       );
 
-      return c.json({
-        data: updatedTasks.map((task) => ({
-          $id: task.$id,
-          $createdAt: task.$createdAt,
-          $updatedAt: task.$updatedAt,
-          name: task.name,
-          status: task.status,
-          assigneeId: task.assigneeId,
-          workspaceId: task.workspaceId,
-          projectId: task.projectId,
-          position: task.position,
-          dueDate: task.dueDate,
-          description: task.description,
-          number: task.number,
-          issueType: task.issueType,
-        })),
-      });
+      return c.json({ data: updatedTasks });
     },
   )
   .post(
@@ -1317,21 +1179,7 @@ const app = new Hono()
       Query.orderDesc("$createdAt"),
     ]);
 
-    return c.json({
-      data: {
-        total: comments.total,
-        documents: comments.documents.map((c) => ({
-          $id: c.$id,
-          $createdAt: c.$createdAt,
-          $updatedAt: c.$updatedAt,
-          text: c.text,
-          issueId: c.issueId,
-          userId: c.userId,
-          username: c.username,
-          attachment: c.attachment,
-        })),
-      },
-    });
+    return c.json({ data: comments });
   })
   .post(
     "/:issueId/comments",
@@ -1378,18 +1226,7 @@ const app = new Hono()
           },
         );
 
-        return c.json({
-          data: {
-            $id: comment.$id,
-            $createdAt: comment.$createdAt,
-            $updatedAt: comment.$updatedAt,
-            text: comment.text,
-            issueId: comment.issueId,
-            userId: comment.userId,
-            username: comment.username,
-            attachment: comment.attachment,
-          },
-        });
+        return c.json({ data: comment });
       } catch (error) {
         console.error("Error creating comment:", error);
         return c.json({ error: "Failed to create comment" }, 500);
