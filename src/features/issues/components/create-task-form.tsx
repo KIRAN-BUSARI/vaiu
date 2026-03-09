@@ -59,6 +59,7 @@ export const CreateTaskForm = ({
     resolver: zodResolver(createTaskSchema.omit({ workspaceId: true })),
     defaultValues: {
       workspaceId,
+      issueType: "github",
     },
   });
   const onSubmit = (values: CreateTaskSchema) => {
@@ -90,6 +91,35 @@ export const CreateTaskForm = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="issueType"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>
+                      Issue Type <span className="ml-0.5 text-red-500">*</span>
+                    </FormLabel>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["vaiu", "github"] as const).map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => field.onChange(t)}
+                          className={cn(
+                            "rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
+                            field.value === t
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-slate-200 bg-slate-100 text-muted-foreground hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
+                          )}
+                        >
+                          {t === "vaiu" ? "Vaiu Issue" : "Github Issue"}
+                        </button>
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="name"

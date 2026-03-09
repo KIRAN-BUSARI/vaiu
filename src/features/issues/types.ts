@@ -10,6 +10,7 @@ export type Issue = Models.Document & {
   dueDate: string;
   description?: string;
   number?: number;
+  issueType: "vaiu" | "github";
 };
 
 export enum IssueStatus {

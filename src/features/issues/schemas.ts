@@ -10,6 +10,7 @@ export const createTaskSchema = z.object({
   dueDate: z.coerce.date(),
   description: z.string().optional(),
   comment: z.string().optional(),
+  issueType: z.enum(["vaiu", "github"]).default("github"),
 });
 
 export const commentSchema = z.object({
