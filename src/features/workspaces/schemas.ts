@@ -8,6 +8,7 @@ export const createWorkspaceSchema = z.object({
       z.string().transform((value) => (value === "" ? undefined : value)),
     ])
     .optional(),
+  type: z.enum(["personal", "organization"]).default("personal"),
 });
 
 export const updateWorkspaceSchema = z.object({

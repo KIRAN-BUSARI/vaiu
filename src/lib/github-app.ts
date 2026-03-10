@@ -109,3 +109,12 @@ export async function getInstallation(installationId: number) {
   );
   return data;
 }
+
+export async function deleteInstallation(installationId: number) {
+  const app = getApp();
+  await app.octokit.request(
+    "DELETE /app/installations/{installation_id}",
+    { installation_id: installationId },
+  );
+  tokenCache.delete(String(installationId));
+}

@@ -552,11 +552,8 @@ Return a JSON response with this exact structure:
         {
           "id": "<unique-id>",
           "title": "<test title>",
-          "description": "<test description>",
+          "description": "<what this test verifies and how>",
           "type": "<unit|integration|e2e|performance|security|accessibility|api|component>",
-          "targetFile": "<file being tested>",
-          "suggestedTestFile": "<suggested test file path>",
-          "testCode": "<actual test code>",
           "prerequisites": ["<dependency1>", "<setup requirement1>"],
           "priority": "<low|medium|high|critical>",
           "reasoning": "<why this test is important>",
@@ -568,18 +565,16 @@ Return a JSON response with this exact structure:
 }
 
 ## Guidelines:
-1. **Be Specific**: Generate actual, runnable test code with proper syntax for the language
+1. **Be Specific**: Clearly describe what each test should verify, inputs, and expected outcomes
 2. **Be Practical**: Focus on tests that catch real bugs and regressions
 3. **Be Comprehensive**: Cover happy paths, edge cases, and error conditions
 4. **Prioritize**: Mark critical tests that must pass before merging
 5. **Context-Aware**: Consider the file changes and commit messages
-6. **Framework-Appropriate**: Use common testing frameworks for the language (Jest/Vitest for JS/TS, pytest for Python, JUnit for Java, etc.)
-7. **Realistic**: Generate tests that developers would actually write
+6. **Actionable**: Write descriptions detailed enough that a developer knows exactly what to test
 
-**IMPORTANT**: 
+**IMPORTANT**:
 - Return ONLY the raw JSON object, no markdown formatting, no code blocks.
 - Start directly with { and end with }.
-- Make sure test code is properly escaped in JSON strings.
 - Generate at least 3-5 test cases per scenario.
 - Focus on the most impactful tests first.
 `;
@@ -622,9 +617,6 @@ function createFallbackTestGeneration(input: TestGenerationInput) {
             title: "Manual test creation needed",
             description: "Review the code changes and create appropriate tests manually",
             type: "unit" as const,
-            targetFile: input.files[0]?.filename || "unknown",
-            suggestedTestFile: "tests/manual-tests.spec.ts",
-            testCode: "// AI generation failed - please write tests manually",
             prerequisites: ["Testing framework"],
             priority: "high" as const,
             reasoning: "AI test generation is unavailable",

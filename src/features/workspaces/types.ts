@@ -5,6 +5,7 @@ export type Workspace = Models.Document & {
   imageUrl: string;
   inviteCode: string;
   userId: string;
+  type: "personal" | "organization";
   githubInstallationId?: string;
   githubAccountLogin?: string;
   githubAccountType?: string;
