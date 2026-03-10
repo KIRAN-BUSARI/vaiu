@@ -28,11 +28,14 @@ import { MemberRole } from "@/features/members/types";
 import {
   createRepository,
   getAccessToken,
+  getInstallationToken,
   deleteRepository,
   getAuthenticatedUser,
   addCollaborator,
   listRepositoryIssues
 } from "@/lib/github-api";
+import { listInstallationRepos } from "@/lib/github-app";
+import { WORKSPACE_ID } from "@/config";
 
 const extractRepoName = (githubUrl: string): string => {
   // Split by '/' and get the last segment
@@ -51,7 +54,6 @@ const app = new Hono()
       const databases = c.get("databases");
       const storage = c.get("storage");
       const user = c.get("user");
-      console.log("User", user);
 
       const { name, image, workspaceId } = c.req.valid("form");
 
@@ -144,10 +146,10 @@ const app = new Hono()
       const databases = c.get("databases");
       const user = c.get("user");
 
-      const { projectLink, workspaceId } = c.req.valid("form");
+      const { projectLink, repoFullName, workspaceId } = c.req.valid("form");
 
-      if (!projectLink) {
-        return c.json({ error: "Please Paste the project link" }, 401);
+      if (!projectLink && !repoFullName) {
+        return c.json({ error: "Please provide a project link or select a repository" }, 400);
       }
 
       const member = await getMember({
@@ -160,20 +162,48 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      // Get GitHub OAuth access token from user profile
-      const githubToken = await getAccessToken(user.$id);
+      let repoName: string;
+      let repoOwner: string;
 
-      if (!githubToken) {
-        return c.json({
-          error: "GitHub account not connected. Please sign in with GitHub to add projects."
-        }, 400);
-      }
+      if (repoFullName) {
+        // GitHub App flow: "owner/repo"
+        const [ownerPart, namePart] = repoFullName.split("/");
+        if (!ownerPart || !namePart) {
+          return c.json({ error: "Invalid repository format. Expected owner/repo" }, 400);
+        }
+        repoOwner = ownerPart;
+        repoName = namePart;
+      } else {
+        // Legacy PAT flow: full GitHub URL
+        const githubToken = await getAccessToken(user.$id);
 
-      const repoName = extractRepoName(projectLink);
+        if (!githubToken) {
+          // Try installation token as fallback
+          const installToken = await getInstallationToken(workspaceId);
+          if (!installToken) {
+            return c.json({
+              error: "GitHub account not connected. Please connect GitHub in workspace settings or sign in with GitHub.",
+            }, 400);
+          }
+        }
 
-      const githubUser = await getAuthenticatedUser(githubToken);
-      if (!githubUser) {
-        return c.json({ error: "Failed to authenticate with GitHub" }, 500);
+        repoName = extractRepoName(projectLink!);
+
+        const githubToken2 = await getAccessToken(user.$id);
+        if (githubToken2) {
+          const githubUser = await getAuthenticatedUser(githubToken2);
+          if (!githubUser) {
+            return c.json({ error: "Failed to authenticate with GitHub" }, 500);
+          }
+          repoOwner = githubUser.login;
+        } else {
+          // Extract owner from URL
+          const segments = projectLink!.split("/");
+          repoOwner = segments[segments.length - 2] || "";
+          if (!repoOwner) {
+            return c.json({ error: "Could not determine repository owner from URL" }, 400);
+          }
+        }
       }
 
       const project = await databases.createDocument(
@@ -185,15 +215,24 @@ const app = new Hono()
           workspaceId,
           projectAdmin: member.$id,
           inviteCode: generateInviteCode(INVITECODE_LENGTH),
-          owner: githubUser.login,
+          owner: repoOwner,
         },
       );
 
-      const data = await listRepositoryIssues(
-        githubToken,
-        githubUser.login,
-        repoName
-      );
+      // Use installation token if available, otherwise fall back to user token
+      const tokenForSync =
+        (await getInstallationToken(workspaceId)) ||
+        (await getAccessToken(user.$id));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any[] = [];
+      if (tokenForSync) {
+        try {
+          data = await listRepositoryIssues(tokenForSync, repoOwner, repoName);
+        } catch {
+          // Non-fatal: project was created, just couldn't sync initial issues
+        }
+      }
 
       const status = IssueStatus.TODO;
 
@@ -237,6 +276,51 @@ const app = new Hono()
       });
 
       return c.json({ data: project, issues: data });
+    },
+  )
+  // ── List repos accessible to the workspace GitHub App installation ──────────
+  .get(
+    "/repos",
+    sessionMiddleware,
+    zValidator("query", z.object({ workspaceId: z.string() })),
+    async (c) => {
+      const databases = c.get("databases");
+      const user = c.get("user");
+      const { workspaceId } = c.req.valid("query");
+
+      const member = await getMember({ databases, workspaceId, userId: user.$id });
+      if (!member) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      try {
+        const workspace = await databases.getDocument(
+          DATABASE_ID,
+          WORKSPACE_ID,
+          workspaceId,
+        );
+
+        if (!workspace.githubInstallationId) {
+          return c.json({
+            error: "GitHub App not connected to this workspace",
+          }, 400);
+        }
+
+        const repos = await listInstallationRepos(workspace.githubInstallationId);
+
+        return c.json({
+          data: repos.map((r) => ({
+            id: r.id,
+            name: r.name,
+            full_name: r.full_name,
+            private: r.private,
+            owner: r.owner.login,
+          })),
+        });
+      } catch (error) {
+        console.error("Failed to list repos:", error);
+        return c.json({ error: "Failed to list repositories" }, 500);
+      }
     },
   )
   .get(

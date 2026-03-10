@@ -12,6 +12,8 @@ import notifications from "@/features/notifications/server/route";
 import aiSummaries from "@/features/ai-summaries/server/route";
 import profileAnalytics from "@/features/profile-analytics/server/route";
 import profile from "@/features/profile/server/route";
+import contact from "@/features/contact/server/route";
+import github from "@/features/github/server/route";
 
 const app = new Hono().basePath("/api/v1");
 
@@ -27,7 +29,9 @@ const routes = app
   .route("/notifications", notifications)
   .route("/ai-summaries", aiSummaries)
   .route("/profile-analytics", profileAnalytics)
-  .route("/profile", profile);
+  .route("/profile", profile)
+  .route("/contact", contact)
+  .route("/github", github);
 
 export const GET = handle(app);
 export const POST = handle(app);

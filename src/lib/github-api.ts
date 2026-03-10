@@ -1,6 +1,7 @@
 import { Octokit, RequestError } from "octokit";
 import { createAdminClient } from "@/lib/appwrite";
 import { DATABASE_ID, USER_PROFILES_ID } from "@/config";
+import { getInstallationTokenForWorkspace as _getInstallationTokenForWorkspace } from "@/lib/github-app";
 
 /**
  * Consolidated GitHub API operations
@@ -15,6 +16,17 @@ import { DATABASE_ID, USER_PROFILES_ID } from "@/config";
  * Get GitHub OAuth access token for a user from their profile
  * Users must authenticate with GitHub OAuth to use GitHub features
  */
+/**
+ * Get a GitHub installation access token for the given workspace.
+ * This is the preferred token for read operations (list repos, PRs, issues).
+ * Returns null if no GitHub App installation is connected to the workspace.
+ */
+export async function getInstallationToken(
+  workspaceId: string,
+): Promise<string | null> {
+  return _getInstallationTokenForWorkspace(workspaceId);
+}
+
 export async function getAccessToken(userId: string): Promise<string | null> {
     try {
         const { databases } = await createAdminClient();
