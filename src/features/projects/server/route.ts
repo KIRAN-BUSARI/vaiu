@@ -646,7 +646,7 @@ const app = new Hono()
       } else {
         uploadedImage = image;
       }
-      const updatedProject = await databases.updateDocument(
+      const updatedProject = await databases.updateDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
         projectId,
@@ -987,7 +987,7 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      const project = await databases.updateDocument(
+      const project = await databases.updateDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
         projectId,

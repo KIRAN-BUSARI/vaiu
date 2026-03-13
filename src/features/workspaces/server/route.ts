@@ -25,6 +25,7 @@ import {
   isSuperAdmin,
 } from "@/features/members/utilts";
 import { Workspace } from "../types";
+import { deleteInstallation } from "@/lib/github-app";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { IssueStatus } from "@/features/issues/types";
 import { Project } from "@/features/projects/types";
@@ -39,12 +40,29 @@ const app = new Hono()
 
     if (isSuper) {
       // Super admins can see all workspaces
-      const workspaces = await databases.listDocuments(
+      const workspaces = await databases.listDocuments<Workspace>(
         DATABASE_ID,
         WORKSPACE_ID,
         [Query.orderDesc("$createdAt")],
       );
-      return c.json({ data: workspaces });
+      return c.json({
+        data: {
+          total: workspaces.total,
+          documents: workspaces.documents.map((w) => ({
+            $id: w.$id,
+            $createdAt: w.$createdAt,
+            $updatedAt: w.$updatedAt,
+            name: w.name,
+            imageUrl: w.imageUrl,
+            inviteCode: w.inviteCode,
+            userId: w.userId,
+            type: w.type,
+            githubInstallationId: w.githubInstallationId,
+            githubAccountLogin: w.githubAccountLogin,
+            githubAccountType: w.githubAccountType,
+          })),
+        },
+      });
     }
 
     // Regular users can only see workspaces they're members of
@@ -53,10 +71,10 @@ const app = new Hono()
     ]);
 
     if (members.total == 0) {
-      return c.json({ data: { documents: [] }, total: 0 });
+      return c.json({ data: { documents: [], total: 0 } });
     }
     const workspaceIds = members.documents.map((member) => member.workspaceId);
-    const workspaces = await databases.listDocuments(
+    const workspaces = await databases.listDocuments<Workspace>(
       DATABASE_ID,
       WORKSPACE_ID,
       [Query.orderDesc("$createdAt"), Query.contains("$id", workspaceIds)],
@@ -191,7 +209,7 @@ const app = new Hono()
         const storage = c.get("storage");
         const user = c.get("user");
 
-        const { name, image } = c.req.valid("form");
+        const { name, image, type } = c.req.valid("form");
 
         let uploadedImage: string | undefined;
         if (image instanceof File) {
@@ -231,6 +249,7 @@ const app = new Hono()
               userId: user.$id,
               imageUrl: uploadedImage,
               inviteCode: generateInviteCode(INVITECODE_LENGTH),
+              type: type ?? "personal",
             },
           );
 
@@ -240,7 +259,21 @@ const app = new Hono()
             projectId: [],
             role: MemberRole.ADMIN,
           });
-          return c.json({ data: workspace });
+          return c.json({
+            data: {
+              $id: workspace.$id,
+              $createdAt: workspace.$createdAt,
+              $updatedAt: workspace.$updatedAt,
+              name: workspace.name,
+              imageUrl: workspace.imageUrl,
+              inviteCode: workspace.inviteCode,
+              userId: workspace.userId,
+              type: workspace.type,
+              githubInstallationId: workspace.githubInstallationId,
+              githubAccountLogin: workspace.githubAccountLogin,
+              githubAccountType: workspace.githubAccountType,
+            },
+          });
         }
       } catch (error) {
         console.log(error);
@@ -285,7 +318,7 @@ const app = new Hono()
       } else {
         uploadedImage = image;
       }
-      const updatedWorkspace = await databases.updateDocument(
+      const updatedWorkspace = await databases.updateDocument<Workspace>(
         DATABASE_ID,
         WORKSPACE_ID,
         workspaceId,
@@ -295,7 +328,21 @@ const app = new Hono()
         },
       );
 
-      return c.json({ data: updatedWorkspace });
+      return c.json({
+        data: {
+          $id: updatedWorkspace.$id,
+          $createdAt: updatedWorkspace.$createdAt,
+          $updatedAt: updatedWorkspace.$updatedAt,
+          name: updatedWorkspace.name,
+          imageUrl: updatedWorkspace.imageUrl,
+          inviteCode: updatedWorkspace.inviteCode,
+          userId: updatedWorkspace.userId,
+          type: updatedWorkspace.type,
+          githubInstallationId: updatedWorkspace.githubInstallationId,
+          githubAccountLogin: updatedWorkspace.githubAccountLogin,
+          githubAccountType: updatedWorkspace.githubAccountType,
+        },
+      });
     },
   )
   .delete("/:workspaceId", sessionMiddleware, async (c) => {
@@ -396,7 +443,7 @@ const app = new Hono()
     if (!member || member.role !== MemberRole.ADMIN) {
       return c.json({ error: "Unauthorized" }, 401);
     }
-    const workspace = await databases.updateDocument(
+    const workspace = await databases.updateDocument<Workspace>(
       DATABASE_ID,
       WORKSPACE_ID,
       workspaceId,
@@ -619,7 +666,17 @@ const app = new Hono()
     return c.json({
       data: {
         isMember: !!member,
-        member: member,
+        member: member
+          ? {
+              $id: member.$id,
+              $createdAt: member.$createdAt,
+              $updatedAt: member.$updatedAt,
+              workspaceId: member.workspaceId,
+              projectId: member.projectId,
+              userId: member.userId,
+              role: member.role,
+            }
+          : null,
       },
     });
   })
@@ -691,7 +748,20 @@ const app = new Hono()
         });
       }
 
-      return c.json({ data: project });
+      return c.json({
+        data: {
+          $id: project.$id,
+          $createdAt: project.$createdAt,
+          $updatedAt: project.$updatedAt,
+          name: project.name,
+          imageUrl: project.imageUrl,
+          workspaceId: project.workspaceId,
+          inviteCode: project.inviteCode,
+          owner: project.owner,
+          projectAdmin: project.projectAdmin,
+          projectCollaborators: project.projectCollaborators,
+        },
+      });
     },
   )
   .post(
@@ -714,7 +784,7 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      const project = await databases.updateDocument(
+      const project = await databases.updateDocument<Project>(
         DATABASE_ID,
         PROJECTS_ID,
         projectId,
@@ -722,7 +792,20 @@ const app = new Hono()
           inviteCode: generateInviteCode(INVITECODE_LENGTH),
         },
       );
-      return c.json({ data: project });
+      return c.json({
+        data: {
+          $id: project.$id,
+          $createdAt: project.$createdAt,
+          $updatedAt: project.$updatedAt,
+          name: project.name,
+          imageUrl: project.imageUrl,
+          workspaceId: project.workspaceId,
+          inviteCode: project.inviteCode,
+          owner: project.owner,
+          projectAdmin: project.projectAdmin,
+          projectCollaborators: project.projectCollaborators,
+        },
+      });
     },
   )
   // ── GitHub App: initiate installation ─────────────────────────────────────
@@ -756,6 +839,22 @@ const app = new Hono()
 
     if (!member || (member.role !== MemberRole.ADMIN && member.role !== "SUPER_ADMIN")) {
       return c.json({ error: "Only workspace admins can disconnect GitHub" }, 403);
+    }
+
+    const workspace = await databases.getDocument<Workspace>(
+      DATABASE_ID,
+      WORKSPACE_ID,
+      workspaceId,
+    );
+
+    // Uninstall the GitHub App from the user's account
+    if (workspace.githubInstallationId) {
+      try {
+        await deleteInstallation(parseInt(workspace.githubInstallationId, 10));
+      } catch (error) {
+        // Non-fatal: app may already be uninstalled on GitHub's side
+        console.error("Failed to delete GitHub installation:", error);
+      }
     }
 
     await databases.updateDocument(DATABASE_ID, WORKSPACE_ID, workspaceId, {
@@ -807,7 +906,21 @@ const app = new Hono()
         role: MemberRole.MEMBER,
       });
 
-      return c.json({ data: workspace });
+      return c.json({
+        data: {
+          $id: workspace.$id,
+          $createdAt: workspace.$createdAt,
+          $updatedAt: workspace.$updatedAt,
+          name: workspace.name,
+          imageUrl: workspace.imageUrl,
+          inviteCode: workspace.inviteCode,
+          userId: workspace.userId,
+          type: workspace.type,
+          githubInstallationId: workspace.githubInstallationId,
+          githubAccountLogin: workspace.githubAccountLogin,
+          githubAccountType: workspace.githubAccountType,
+        },
+      });
     },
   );
 
