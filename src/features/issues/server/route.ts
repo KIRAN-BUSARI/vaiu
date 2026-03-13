@@ -22,32 +22,13 @@ import { Project } from "@/features/projects/types";
 import { Member } from "@/features/members/types";
 import {
   getAccessToken,
+  getInstallationToken,
   getAuthenticatedUser,
   listRepositoryIssues,
   updateIssue,
   createIssue,
   checkCollaborator,
 } from "@/lib/github-api";
-
-// // function getRandomFutureDate(): string // {
-//  //  /**
-//    * Generates a random date string in the future, at least 7 days from the curren// t date,
-//    * and no more than 2 months from the cur// rent date.
-//    * @returns A string representing a random date in the future, i// n ISO form// at.
-//    **/
-
-//   const // today = new Date();
-//   const oneWeekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 10// 00); // 7 days minimum
-//   const twoMo// nthsFromNow = new Date();
-//   twoMonthsFromNow.setMo// nth(today.getMonth() + 2);
-
-////    const randomDate = new Date(// 
-//     oneWeekFromNow.getTime() +
-//     Math.random() * (twoMonthsFromNow.g// etTime()//  - oneWeekFromNow.getTime()),
-//   // );
-
-//   return randomDate.toISOString();
-// }
 
 const app = new Hono()
   .delete("/:issueId", sessionMiddleware, async (c) => {
@@ -100,32 +81,37 @@ const app = new Hono()
       }
     }
 
-    // Get GitHub OAuth access token
-    const githubToken = await getAccessToken(user.$id);
-    if (!githubToken) {
-      return c.json(
-        {
-          error: "GitHub account not connected. Cannot delete issue.",
-        },
-        400,
-      );
-    }
+    // Only close on GitHub if this is a GitHub issue
+    if (issuesFromDb.issueType === "github") {
+      const githubToken = await getAccessToken(user.$id);
+      if (!githubToken) {
+        return c.json(
+          {
+            error: "GitHub account not connected. Cannot delete GitHub issue.",
+          },
+          400,
+        );
+      }
 
-    if (!issuesFromDb.number) {
-      return c.json({ error: "Issue number not found in database" }, 400);
-    }
+      if (!issuesFromDb.number) {
+        return c.json({ error: "Issue number not found in database" }, 400);
+      }
 
-    // Close the GitHub issue and delete from database in parallel
-    await Promise.all([
-      updateIssue(
-        githubToken,
-        existingProject.owner,
-        existingProject.name,
-        issuesFromDb.number,
-        { state: "closed" },
-      ),
-      databases.deleteDocument(DATABASE_ID, ISSUES_ID, issueId)
-    ]);
+      // Close the GitHub issue and delete from database in parallel
+      await Promise.all([
+        updateIssue(
+          githubToken,
+          existingProject.owner,
+          existingProject.name,
+          issuesFromDb.number,
+          { state: "closed" },
+        ),
+        databases.deleteDocument(DATABASE_ID, ISSUES_ID, issueId)
+      ]);
+    } else {
+      // For Vaiu-only issues, just delete from database
+      await databases.deleteDocument(DATABASE_ID, ISSUES_ID, issueId);
+    }
 
     return c.json({
       success: true,
@@ -212,19 +198,15 @@ const app = new Hono()
       }
 
       if (status) {
-        // console.log("status:", status);
         query.push(Query.equal("status", status));
       }
       if (assigneeId) {
-        // console.log("assigneeId:", assigneeId);
         query.push(Query.equal("assigneeId", assigneeId));
       }
       if (dueDate) {
-        // console.log("dueDate:", dueDate);
         query.push(Query.equal("dueDate", dueDate));
       }
       if (search) {
-        // console.log("search:", search);
         query.push(Query.search("name", search));
       }
 
@@ -337,6 +319,7 @@ const app = new Hono()
           projectId,
           assigneeId,
           workspaceId,
+          issueType,
         } = c.req.valid("json");
 
         const projects = await databases.listDocuments(
@@ -360,17 +343,6 @@ const app = new Hono()
 
         if (!fetchAssinee) {
           return c.json({ error: "Assignee not found" }, 404);
-        }
-
-        // Get GitHub OAuth access token
-        const githubToken = await getAccessToken(user.$id);
-        if (!githubToken) {
-          return c.json(
-            {
-              error: "GitHub account not connected. Cannot create issue.",
-            },
-            400,
-          );
         }
 
         // Check if user is a super admin
@@ -397,26 +369,6 @@ const app = new Hono()
           }
         }
 
-        // Get authenticated GitHub user
-        const authenticatedGithubUser = await getAuthenticatedUser(githubToken);
-        if (!authenticatedGithubUser) {
-          return c.json({ error: "Failed to authenticate with GitHub" }, 500);
-        }
-
-        // Check if user is a collaborator on the repository
-        const isCollaborator = await checkCollaborator(
-          githubToken,
-          authenticatedGithubUser.login,
-          projects.documents[0].name,
-          authenticatedGithubUser.login
-        );
-
-        if (!isCollaborator) {
-          return c.json({
-            error: "You must be a collaborator on this repository to create issues"
-          }, 403);
-        }
-
         const highestPositionTask = await databases.listDocuments(
           DATABASE_ID,
           ISSUES_ID,
@@ -432,27 +384,66 @@ const app = new Hono()
             ? highestPositionTask.documents[0].position + 1000
             : 1000;
 
-        const issueInGit = await createIssue(
-          githubToken,
-          authenticatedGithubUser.login,
-          projects.documents[0].name,
-          name,
-          description || "",
-        );
+        let issueInGit;
+        let githubNumber;
 
-        // Idempotency guard: if an issue with the same GitHub number already exists for this project, return it
-        const existingByNumber = await databases
-          .listDocuments<Issue>(DATABASE_ID, ISSUES_ID, [
-            Query.equal("projectId", projectId),
-            Query.equal("number", issueInGit.number),
-          ])
-          .catch(() => ({ documents: [] as Issue[] }));
+        // Only interact with GitHub if issueType is "github"
+        if (issueType === "github") {
+          // Get GitHub OAuth access token
+          const githubToken = await getAccessToken(user.$id);
+          if (!githubToken) {
+            return c.json(
+              {
+                error: "GitHub account not connected. Cannot create GitHub issue.",
+              },
+              400,
+            );
+          }
 
-        if (existingByNumber.documents.length > 0) {
-          return c.json({
-            data: existingByNumber.documents[0],
-            issue: issueInGit,
-          });
+          // Get authenticated GitHub user
+          const authenticatedGithubUser = await getAuthenticatedUser(githubToken);
+          if (!authenticatedGithubUser) {
+            return c.json({ error: "Failed to authenticate with GitHub" }, 500);
+          }
+
+          // Check if user is a collaborator on the repository
+          const isCollaborator = await checkCollaborator(
+            githubToken,
+            authenticatedGithubUser.login,
+            projects.documents[0].name,
+            authenticatedGithubUser.login
+          );
+
+          if (!isCollaborator) {
+            return c.json({
+              error: "You must be a collaborator on this repository to create issues"
+            }, 403);
+          }
+
+          issueInGit = await createIssue(
+            githubToken,
+            authenticatedGithubUser.login,
+            projects.documents[0].name,
+            name,
+            description || "",
+          );
+
+          githubNumber = issueInGit.number;
+
+          // Idempotency guard: if an issue with the same GitHub number already exists for this project, return it
+          const existingByNumber = await databases
+            .listDocuments<Issue>(DATABASE_ID, ISSUES_ID, [
+              Query.equal("projectId", projectId),
+              Query.equal("number", githubNumber),
+            ])
+            .catch(() => ({ documents: [] as Issue[] }));
+
+          if (existingByNumber.documents.length > 0) {
+            return c.json({
+              data: existingByNumber.documents[0],
+              issue: issueInGit,
+            });
+          }
         }
 
         const issue = await databases.createDocument<Issue>(
@@ -468,7 +459,8 @@ const app = new Hono()
             projectId,
             assigneeId,
             position: newPosition,
-            number: issueInGit.number,
+            number: githubNumber,
+            issueType,
           },
         );
 
@@ -580,8 +572,8 @@ const app = new Hono()
         },
       );
 
-      // Sync status changes to GitHub (only if status changed)
-      if (status && issue.number) {
+      // Sync status changes to GitHub (only if status changed and issue is GitHub type)
+      if (status && issue.number && issue.issueType === "github") {
         try {
           const project = await databases.getDocument<Project>(
             DATABASE_ID,
@@ -589,23 +581,19 @@ const app = new Hono()
             issue.projectId,
           );
 
-          // Get GitHub OAuth access token
+          // Write operation: use user OAuth token for proper attribution
           const githubToken = await getAccessToken(user.$id);
 
           if (githubToken) {
-            const owner = await getAuthenticatedUser(githubToken);
+            const newState = status === "DONE" ? "closed" : "open";
 
-            if (owner) {
-              const newState = status === "DONE" ? "closed" : "open";
-
-              await updateIssue(
-                githubToken,
-                owner.login,
-                project.name,
-                issue.number,
-                { state: newState },
-              );
-            }
+            await updateIssue(
+              githubToken,
+              project.owner,
+              project.name,
+              issue.number,
+              { state: newState },
+            );
           }
         } catch (error) {
           console.error("Error syncing to GitHub:", error);
@@ -671,7 +659,13 @@ const app = new Hono()
         try {
           const user = await users.get(member.userId);
           assignee = {
-            ...member,
+            $id: member.$id,
+            $createdAt: member.$createdAt,
+            $updatedAt: member.$updatedAt,
+            workspaceId: member.workspaceId,
+            projectId: member.projectId,
+            userId: member.userId,
+            role: member.role,
             name: user.name || user.email,
             email: user.email,
           };
@@ -684,14 +678,26 @@ const app = new Hono()
           ) {
             // User not found in Appwrite
             assignee = {
-              ...member,
+              $id: member.$id,
+              $createdAt: member.$createdAt,
+              $updatedAt: member.$updatedAt,
+              workspaceId: member.workspaceId,
+              projectId: member.projectId,
+              userId: member.userId,
+              role: member.role,
               name: "Unknown User",
               email: "user-not-found@example.com",
             };
           } else {
             console.error(`Error fetching user ${member.userId}:`, userError);
             assignee = {
-              ...member,
+              $id: member.$id,
+              $createdAt: member.$createdAt,
+              $updatedAt: member.$updatedAt,
+              workspaceId: member.workspaceId,
+              projectId: member.projectId,
+              userId: member.userId,
+              role: member.role,
               name: "Error Fetching User",
               email: "error@example.com",
             };
@@ -706,15 +712,14 @@ const app = new Hono()
         // Create a fallback assignee object for GitHub usernames
         assignee = {
           $id: issue.assigneeId || "unknown",
-          userId: issue.assigneeId || "unknown",
-          workspaceId: issue.workspaceId,
-          name: issue.assigneeId || "Unassigned",
-          email: `${issue.assigneeId}@github.local`,
           $createdAt: new Date().toISOString(),
           $updatedAt: new Date().toISOString(),
-          $permissions: [],
-          $collectionId: MEMBERS_ID,
-          $databaseId: DATABASE_ID,
+          userId: issue.assigneeId || "unknown",
+          workspaceId: issue.workspaceId,
+          projectId: [],
+          role: null,
+          name: issue.assigneeId || "Unassigned",
+          email: `${issue.assigneeId}@github.local`,
         };
       }
     }
@@ -850,43 +855,38 @@ const app = new Hono()
           );
         }
 
-        if (isMovingToDone && (isSuper || member?.role === "ADMIN")) {
+        if (isMovingToDone && (isSuper || member?.role === "ADMIN") && existing.issueType === "github") {
           const project = await databases.getDocument<Project>(
             DATABASE_ID,
             PROJECTS_ID,
             existing.projectId,
           );
 
-          // Get GitHub OAuth access token
-          const githubToken = await getAccessToken(user.$id);
+          // Use installation token for the read; user token for the write
+          const readToken =
+            (await getInstallationToken(workspaceId)) ||
+            (await getAccessToken(user.$id));
+          const writeToken = await getAccessToken(user.$id);
 
-          if (githubToken) {
-            const owner = await getAuthenticatedUser(githubToken);
+          if (readToken) {
+            const issuesFromGit = await listRepositoryIssues(
+              readToken,
+              project.owner,
+              project.name,
+            );
 
-            if (owner) {
-              const issuesFromGit = await listRepositoryIssues(
-                githubToken,
-                owner.login,
+            const currentIssue = issuesFromGit.find(
+              (issue) => issue.title === existing.name,
+            );
+
+            if (currentIssue && writeToken) {
+              await updateIssue(
+                writeToken,
+                project.owner,
                 project.name,
+                currentIssue.number,
+                { state: "closed" },
               );
-
-              const currentIssue = issuesFromGit.find(
-                (issue) => issue.title === existing.name,
-              );
-
-              if (!currentIssue) {
-                return c.json({ error: "Issue not found" }, 404);
-              }
-
-              if (currentIssue) {
-                await updateIssue(
-                  githubToken,
-                  owner.login,
-                  project.name,
-                  currentIssue.number,
-                  { state: "closed" },
-                );
-              }
             }
           }
         }
@@ -914,8 +914,6 @@ const app = new Hono()
         const { projectId } = c.req.valid("json");
         const databases = c.get("databases");
         const user = c.get("user");
-        console.log("ProjectId:", projectId);
-
         if (!projectId) {
           return c.json({ error: "Project ID is required" }, 400);
         }
@@ -959,27 +957,23 @@ const app = new Hono()
           }
         }
 
-        // Get GitHub OAuth access token
-        const githubToken = await getAccessToken(user.$id);
+        // Prefer installation token for reads; fall back to user OAuth token
+        const githubToken =
+          (await getInstallationToken(project.workspaceId)) ||
+          (await getAccessToken(user.$id));
 
         if (!githubToken) {
           return c.json(
             {
-              error: "GitHub account not connected. Cannot fetch issues.",
+              error: "GitHub not connected. Connect GitHub in workspace settings or sign in with GitHub.",
             },
             400,
           );
         }
 
-        const owner = await getAuthenticatedUser(githubToken);
-
-        if (!owner) {
-          return c.json({ error: "Failed to authenticate with GitHub" }, 500);
-        }
-
         const issuesFromGit = await listRepositoryIssues(
           githubToken,
-          owner.login,
+          project.owner,
           project.name,
           "all", // Get both open and closed issues for sync
         );

@@ -19,11 +19,8 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
-  Copy,
-  Check,
 } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,8 +43,6 @@ interface TestGenerationResultsProps {
 export function TestGenerationResults({
   testGeneration
 }: TestGenerationResultsProps) {
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
   const getTestTypeIcon = (type: TestType) => {
     switch (type) {
       case TestType.UNIT:
@@ -96,17 +91,6 @@ export function TestGenerationResults({
         return "secondary";
       default:
         return "secondary";
-    }
-  };
-
-  const copyToClipboard = async (text: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      toast.success("Copied to clipboard");
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      toast.error("Failed to copy");
     }
   };
 
@@ -267,8 +251,6 @@ export function TestGenerationResults({
                       testCase={testCase}
                       getTestTypeIcon={getTestTypeIcon}
                       getPriorityColor={getPriorityColor}
-                      copyToClipboard={copyToClipboard}
-                      copiedId={copiedId}
                     />
                   ))}
                 </div>
@@ -298,16 +280,12 @@ function TestCaseCard({
   testCase,
   getTestTypeIcon,
   getPriorityColor,
-  copyToClipboard,
-  copiedId,
 }: {
   testCase: TestCase;
   getTestTypeIcon: (type: TestType) => JSX.Element;
   getPriorityColor: (
     priority: string,
   ) => "destructive" | "default" | "secondary" | "outline";
-  copyToClipboard: (text: string, id: string) => void;
-  copiedId: string | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -345,21 +323,6 @@ function TestCaseCard({
               <p className="text-sm text-muted-foreground">
                 {testCase.description}
               </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="mb-1 font-semibold">Target File</h4>
-                <code className="text-xs text-muted-foreground">
-                  {testCase.targetFile}
-                </code>
-              </div>
-              <div>
-                <h4 className="mb-1 font-semibold">Test File</h4>
-                <code className="text-xs text-muted-foreground">
-                  {testCase.suggestedTestFile}
-                </code>
-              </div>
             </div>
 
             <div>
@@ -400,32 +363,6 @@ function TestCaseCard({
                 </ul>
               </div>
             )}
-
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h4 className="text-sm font-semibold">Test Code</h4>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    copyToClipboard(testCase.testCode, testCase.id)
-                  }
-                >
-                  {copiedId === testCase.id ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <ScrollArea className="h-[400px] w-full">
-                <pre className="max-w-full overflow-x-auto rounded-lg border border-border bg-muted p-4 pb-6 text-xs font-mono leading-relaxed">
-                  <code className="block whitespace-pre-wrap break-words">
-                    {testCase.testCode.replace(/\\n/g, '\n')}
-                  </code>
-                </pre>
-              </ScrollArea>
-            </div>
           </div>
         </CollapsibleContent>
       </div>

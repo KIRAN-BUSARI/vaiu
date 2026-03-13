@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarIcon, PlusIcon } from "lucide-react";
+import { CalendarIcon, PlusIcon, Github } from "lucide-react";
 import Link from "next/link";
 import { Issue } from "@/features/issues/types";
 import { formatDistanceToNow } from "date-fns";
@@ -17,11 +17,13 @@ import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { useCreateTaskModal } from "@/features/issues/hooks/use-create-task-modal";
 import { useCreateProjectModal } from "@/features/projects/hooks/use-create-project-modal";
 import { useGetWorkspaceAnalytics } from "@/features/workspaces/api/use-get-workspace-analytics";
+import { useGetWorkspace } from "@/features/workspaces/api/use-get-workspace";
 import { Separator } from "@/components/ui/separator";
 
 export const WorkspaceIdClient = () => {
   const workspaceId = useWorkspaceId();
 
+  const { data: workspace } = useGetWorkspace({ workspaceId });
   const { data: analytics, isLoading: analyticsLoading } =
     useGetWorkspaceAnalytics({ workspaceId });
   const { data: tasks, isLoading: tasksLoading } = useGetIssues({
@@ -34,12 +36,30 @@ export const WorkspaceIdClient = () => {
   const isLoading = analyticsLoading || tasksLoading || projectsLoading;
 
   if (isLoading) return <Loader />;
-  console.log("projects", projects);
 
   if (!analytics || !tasks || !projects)
     return <PageError message="Failed to load workspace data" />;
+
+  const githubConnected = !!(workspace as { githubInstallationId?: string } | undefined)
+    ?.githubInstallationId;
+
   return (
     <div className="flex h-full flex-col space-y-4">
+      {!githubConnected && (
+        <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950">
+          <div className="flex items-center gap-3">
+            <Github className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <span className="text-sm text-blue-700 dark:text-blue-300">
+              Connect GitHub to sync repos, issues &amp; PRs automatically
+            </span>
+          </div>
+          <Button size="sm" asChild>
+            <Link href={`/api/v1/workspaces/${workspaceId}/github/install`}>
+              Connect GitHub
+            </Link>
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
         <Button variant="outline" asChild>
@@ -122,8 +142,6 @@ interface ProjectListProps {
 export const ProjectList = ({ data, total }: ProjectListProps) => {
   const { open: createProject } = useCreateProjectModal();
   const workspaceId = useWorkspaceId();
-  console.log("ProjectList data", data);
-  console.log("ProjectList total", total);
 
   return (
     <div className="col-span-1 flex flex-col gap-y-4">

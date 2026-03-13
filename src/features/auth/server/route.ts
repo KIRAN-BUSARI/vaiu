@@ -20,6 +20,10 @@ const app = new Hono()
   .get("/current", sessionMiddleware, async (c) => {
     const user = c.get("user");
 
+    if (!user) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
     return c.json({ data: user });
   })
   .post("/login", zValidator("json", loginSchema), async (c) => {
@@ -97,7 +101,6 @@ const app = new Hono()
   .post("/register", zValidator("json", registerSchema), async (c) => {
     try {
       const { name, email, password } = c.req.valid("json");
-      console.log(name, email, password);
       if (!name || !email || !password) {
         return c.json({ error: "Name, email and password are required" }, 400);
       }
@@ -111,7 +114,6 @@ const app = new Hono()
         return c.json({ error: "Invalid email address" }, 400);
       }
       const { users } = await createAdminClient();
-      console.log("Admin account", users);
 
       try {
         // Check if user with this email already exists

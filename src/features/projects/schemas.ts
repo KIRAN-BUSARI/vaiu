@@ -39,7 +39,10 @@ export const removeCollaboratorFromProjectSchema = z.object({
 
 export const addExistingProjectSchema = z.object({
   workspaceId: z.string(),
-  projectLink: z.string(),
+  // Legacy: paste GitHub URL directly
+  projectLink: z.string().optional(),
+  // New: pick from installation repos (format: "owner/repo")
+  repoFullName: z.string().optional(),
   image: z
     .union([
       z.instanceof(File),

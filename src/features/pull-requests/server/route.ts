@@ -9,6 +9,7 @@ import { Octokit, RequestError } from "octokit";
 import { PrStatus } from "../types";
 import {
   getAccessToken,
+  getInstallationToken,
   listPullRequests,
   createPullRequest,
   checkCollaborator,
@@ -18,7 +19,7 @@ import {
 import { createPrSchema } from "../schemas";
 import { ID, Query, type Databases } from "node-appwrite";
 import { AIReview } from "../types-ai";
-import { AITestGeneration, PersistedTestCase, TestType } from "../types-tests";
+import { AITestGeneration, TestStatus, TestType } from "../types-tests";
 import { analyzeWithGemini, PRAnalysisInput, generateTestCases } from "@/lib/ai-service";
 
 const app = new Hono()
@@ -61,12 +62,14 @@ const app = new Hono()
         }
       }
 
-      // Get GitHub OAuth access token
-      const githubToken = await getAccessToken(user.$id);
+      // Prefer installation token (workspace-level); fall back to user OAuth token
+      const githubToken =
+        (await getInstallationToken(workspaceId)) ||
+        (await getAccessToken(user.$id));
 
       if (!githubToken) {
         return c.json({
-          error: "GitHub account not connected. Cannot fetch pull requests."
+          error: "GitHub not connected. Connect GitHub in workspace settings or sign in with GitHub.",
         }, 400);
       }
 
@@ -95,7 +98,6 @@ const app = new Hono()
             $createdAt: pr.created_at,
             $updatedAt: pr.updated_at,
             $mergedAt: pr.merged_at,
-
             $collectionId: "",
             $databaseId: "",
             $permissions: [],
@@ -372,7 +374,7 @@ const app = new Hono()
         }
 
         // Check if tests were recently generated (within last 5 minutes) to prevent spamming
-        const recentTests = await databases.listDocuments<PersistedTestCase>(
+        const recentTests = await databases.listDocuments(
           DATABASE_ID,
           AI_TESTS_ID,
           [
@@ -449,7 +451,7 @@ const app = new Hono()
           }
         }
 
-        const tests = await databases.listDocuments<PersistedTestCase>(
+        const tests = await databases.listDocuments(
           DATABASE_ID,
           AI_TESTS_ID,
           [
@@ -459,7 +461,27 @@ const app = new Hono()
           ]
         );
 
-        return c.json({ data: tests.documents });
+        return c.json({
+          data: tests.documents.map((t) => ({
+            $id: t.$id,
+            $createdAt: t.$createdAt,
+            $updatedAt: t.$updatedAt,
+            id: t.$id,
+            projectId: t.projectId,
+            prNumber: t.prNumber,
+            scenarioId: t.scenarioId,
+            title: t.title,
+            description: t.description,
+            type: t.type,
+            prerequisites: t.prerequisites,
+            priority: t.priority,
+            reasoning: t.reasoning,
+            edgeCases: t.edgeCases,
+            isCustom: t.isCustom,
+            isDeleted: t.isDeleted,
+            status: t.status,
+          })),
+        });
       } catch (error) {
         console.error("Failed to fetch tests:", error);
         return c.json({ error: "Failed to fetch tests" }, 500);
@@ -473,9 +495,6 @@ const app = new Hono()
       title: z.string(),
       description: z.string(),
       type: z.nativeEnum(TestType),
-      targetFile: z.string(),
-      suggestedTestFile: z.string(),
-      testCode: z.string(),
       prerequisites: z.array(z.string()),
       priority: z.enum(["low", "medium", "high", "critical"]),
       reasoning: z.string(),
@@ -523,10 +542,31 @@ const app = new Hono()
             ...testData,
             isCustom: true,
             isDeleted: false,
+            status: TestStatus.UNTESTED,
           }
         );
 
-        return c.json({ data: newTest });
+        return c.json({
+          data: {
+            $id: newTest.$id,
+            $createdAt: newTest.$createdAt,
+            $updatedAt: newTest.$updatedAt,
+            id: newTest.$id,
+            projectId: newTest.projectId,
+            prNumber: newTest.prNumber,
+            scenarioId: newTest.scenarioId,
+            title: newTest.title,
+            description: newTest.description,
+            type: newTest.type,
+            prerequisites: newTest.prerequisites,
+            priority: newTest.priority,
+            reasoning: newTest.reasoning,
+            edgeCases: newTest.edgeCases,
+            isCustom: newTest.isCustom,
+            isDeleted: newTest.isDeleted,
+            status: newTest.status,
+          },
+        });
       } catch (error) {
         console.error("Failed to create test:", error);
         return c.json({ error: "Failed to create test" }, 500);
@@ -540,13 +580,11 @@ const app = new Hono()
       title: z.string().optional(),
       description: z.string().optional(),
       type: z.nativeEnum(TestType).optional(),
-      targetFile: z.string().optional(),
-      suggestedTestFile: z.string().optional(),
-      testCode: z.string().optional(),
       prerequisites: z.array(z.string()).optional(),
       priority: z.enum(["low", "medium", "high", "critical"]).optional(),
       reasoning: z.string().optional(),
       edgeCases: z.array(z.string()).optional(),
+      status: z.nativeEnum(TestStatus).optional(),
     })),
     async (c) => {
       const databases = c.get("databases");
@@ -555,7 +593,7 @@ const app = new Hono()
       const updates = c.req.valid("json");
 
       try {
-        const test = await databases.getDocument<PersistedTestCase>(
+        const test = await databases.getDocument(
           DATABASE_ID,
           AI_TESTS_ID,
           testId
@@ -596,7 +634,27 @@ const app = new Hono()
           updates
         );
 
-        return c.json({ data: updatedTest });
+        return c.json({
+          data: {
+            $id: updatedTest.$id,
+            $createdAt: updatedTest.$createdAt,
+            $updatedAt: updatedTest.$updatedAt,
+            id: updatedTest.$id,
+            projectId: updatedTest.projectId,
+            prNumber: updatedTest.prNumber,
+            scenarioId: updatedTest.scenarioId,
+            title: updatedTest.title,
+            description: updatedTest.description,
+            type: updatedTest.type,
+            prerequisites: updatedTest.prerequisites,
+            priority: updatedTest.priority,
+            reasoning: updatedTest.reasoning,
+            edgeCases: updatedTest.edgeCases,
+            isCustom: updatedTest.isCustom,
+            isDeleted: updatedTest.isDeleted,
+            status: updatedTest.status,
+          },
+        });
       } catch (error) {
         console.error("Failed to update test:", error);
         return c.json({ error: "Failed to update test" }, 500);
@@ -612,7 +670,7 @@ const app = new Hono()
       const { projectId, testId } = c.req.param();
 
       try {
-        const test = await databases.getDocument<PersistedTestCase>(
+        const test = await databases.getDocument(
           DATABASE_ID,
           AI_TESTS_ID,
           testId
@@ -880,9 +938,6 @@ async function persistGeneratedTests(
           title: testCase.title,
           description: testCase.description,
           type: testCase.type,
-          targetFile: testCase.targetFile,
-          suggestedTestFile: testCase.suggestedTestFile,
-          testCode: testCase.testCode,
           prerequisites: testCase.prerequisites,
           priority: testCase.priority,
           reasoning: testCase.reasoning,
