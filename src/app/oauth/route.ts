@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     path: "/",
     httpOnly: true,
     sameSite: "strict",
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
   });
 
   try {
@@ -28,36 +28,36 @@ export async function GET(request: NextRequest) {
 
     // Get the session to access provider access token
     const sessions = await users.listSessions(userId);
-    const currentSession = sessions.sessions.find(s => s.$id === session.$id);
+    const currentSession = sessions.sessions.find((s) => s.$id === session.$id);
 
     if (currentSession && currentSession.providerAccessToken) {
       const octokit = new Octokit({
-        auth: currentSession.providerAccessToken
+        auth: currentSession.providerAccessToken,
       });
 
       // Fetch GitHub user profile
       const { data: githubUser } = await octokit.rest.users.getAuthenticated();
 
       try {
-        await databases.createDocument(
-          DATABASE_ID,
-          USER_PROFILES_ID,
-          userId,
-          {
-            userId: userId,
-            email: user.email,
-            name: user.name,
-            githubUsername: githubUser.login,
-            githubId: githubUser.id.toString(),
-            avatarUrl: githubUser.avatar_url,
-            publicRepos: githubUser.public_repos,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          }
-        );
+        await databases.createDocument(DATABASE_ID, USER_PROFILES_ID, userId, {
+          userId: userId,
+          email: user.email,
+          name: user.name,
+          githubUsername: githubUser.login,
+          githubId: githubUser.id.toString(),
+          avatarUrl: githubUser.avatar_url,
+          publicRepos: githubUser.public_repos,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
       } catch (error) {
         // If document already exists (code 409), update it instead
-        if (error && typeof error === 'object' && 'code' in error && error.code === 409) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          error.code === 409
+        ) {
           await databases.updateDocument(
             DATABASE_ID,
             USER_PROFILES_ID,
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
               avatarUrl: githubUser.avatar_url,
               publicRepos: githubUser.public_repos,
               updatedAt: new Date().toISOString(),
-            }
+            },
           );
         } else {
           console.error("Failed to store user profile:", error);

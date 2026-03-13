@@ -26,10 +26,30 @@ export const useLogin = () => {
 
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      let redirectPath = "/workspaces/create";
+
+      try {
+        const response = await client.api.v1.workspaces.$get();
+        if (response.ok) {
+          const { data } = (await response.json()) as {
+            data?: { documents?: Array<{ $id: string }> };
+          };
+
+          const workspaceId = data?.documents?.[0]?.$id;
+          if (workspaceId) {
+            redirectPath = `/workspaces/${workspaceId}`;
+          }
+        }
+      } catch {
+        redirectPath = "/";
+      }
+
       router.refresh();
+      router.replace(redirectPath);
       toast.success("Logged in successfully");
       queryClient.invalidateQueries({ queryKey: ["current"] });
+      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
     onError: (e) => {
       toast.error(e.message);

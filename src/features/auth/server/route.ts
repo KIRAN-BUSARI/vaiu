@@ -51,7 +51,7 @@ const app = new Hono()
         setCookie(c, AUTH_COOKIE, session.secret, {
           path: "/",
           httpOnly: true,
-          secure: true,
+          secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
           maxAge: 60 * 60 * 24 * 30,
         });
@@ -126,12 +126,7 @@ const app = new Hono()
         console.log("Error checking users:", error);
       }
       const { account, databases } = await createAdminClient();
-      const user = await account.create(
-        ID.unique(),
-        email,
-        password,
-        name
-      );
+      const user = await account.create(ID.unique(), email, password, name);
 
       // Create user profile in database
       try {
@@ -144,7 +139,7 @@ const app = new Hono()
             email: user.email,
             name: user.name,
             githubAccessToken: "",
-          }
+          },
         );
       } catch (profileError) {
         console.error("Failed to create user profile:", profileError);
@@ -196,7 +191,7 @@ const app = new Hono()
       setCookie(c, AUTH_COOKIE, session.secret, {
         path: "/",
         httpOnly: true,
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         maxAge: 60 * 60 * 24 * 30,
       });
