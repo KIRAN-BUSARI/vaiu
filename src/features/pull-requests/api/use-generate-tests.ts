@@ -1,7 +1,8 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { InferRequestType, InferResponseType } from "hono";
 import { client } from "@/lib/rpc";
 import { toast } from "sonner";
+import { AITestGeneration } from "../types-tests";
 
 type TestGenerationResponseType = InferResponseType<
   (typeof client.api.v1)["pull-requests"][":projectId"]["generate-tests"][":prNumber"]["$post"],
@@ -67,4 +68,35 @@ export const useGenerateTestCases = () => {
     data: testGenerationMutation.data,
     reset: testGenerationMutation.reset,
   };
+};
+
+export const useSaveGeneratedTests = (projectId: string, prNumber: number) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tests: AITestGeneration) => {
+      const response = await fetch(
+        `/api/v1/pull-requests/${projectId}/tests/${prNumber}/save-generated`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tests }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error("error" in errorData ? errorData.error : "Failed to save tests");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast.success("Tests saved to Test Management");
+      queryClient.invalidateQueries({ queryKey: ["pr-tests", projectId, prNumber] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to save tests");
+    },
+  });
 };

@@ -236,6 +236,8 @@ export function PRActionsCell({ pr }: PRActionsCellProps) {
             <div>
               <TestGenerationResults
                 testGeneration={testsData.tests}
+                projectId={projectId}
+                prNumber={pr.number}
                 onClose={handleCloseTests}
               />
             </div>

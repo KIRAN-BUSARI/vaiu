@@ -416,16 +416,46 @@ const app = new Hono()
           githubToken,
         });
 
-        // Persist the generated tests to database asynchronously (don't wait)
-        persistGeneratedTests(databases, testGeneration, projectId, parseInt(prNumber))
-          .catch(error => {
-            console.error("Failed to persist tests to database:", error);
-          });
-
         return c.json({ success: true, tests: testGeneration });
       } catch (error) {
         console.error("Test generation failed:", error);
         return c.json({ error: "Failed to generate test cases" }, 500);
+      }
+    }
+  )
+  .post(
+    "/:projectId/tests/:prNumber/save-generated",
+    sessionMiddleware,
+    async (c) => {
+      const databases = c.get("databases");
+      const user = c.get("user");
+      const { projectId, prNumber } = c.req.param();
+
+      const { project, access } = await getProjectContext({
+        databases,
+        userId: user.$id,
+        projectId,
+      });
+
+      if (!project) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+
+      if (!access.hasAccess) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const body = await c.req.json<{ tests: AITestGeneration }>();
+      if (!body?.tests) {
+        return c.json({ error: "Missing tests data" }, 400);
+      }
+
+      try {
+        await persistGeneratedTests(databases, body.tests, projectId, parseInt(prNumber));
+        return c.json({ success: true });
+      } catch (error) {
+        console.error("Failed to save generated tests:", error);
+        return c.json({ error: "Failed to save tests" }, 500);
       }
     }
   )
@@ -913,6 +943,7 @@ async function persistGeneratedTests(
           priority: testCase.priority,
           reasoning: testCase.reasoning,
           edgeCases: testCase.edgeCases,
+          status: TestStatus.UNTESTED,
           isCustom: false,
           isDeleted: false,
         }

@@ -34,15 +34,21 @@ import {
 } from "@/components/ui/collapsible";
 
 import { AITestGeneration, TestType, TestCase } from "../types-tests";
+import { useSaveGeneratedTests } from "../api/use-generate-tests";
 
 interface TestGenerationResultsProps {
   testGeneration: AITestGeneration;
+  projectId: string;
+  prNumber: number;
   onClose?: () => void;
 }
 
 export function TestGenerationResults({
-  testGeneration
+  testGeneration,
+  projectId,
+  prNumber,
 }: TestGenerationResultsProps) {
+  const saveTests = useSaveGeneratedTests(projectId, prNumber);
   const getTestTypeIcon = (type: TestType) => {
     switch (type) {
       case TestType.UNIT:
@@ -265,12 +271,21 @@ export function TestGenerationResults({
           Generated on {new Date(testGeneration.createdAt).toLocaleString()} •
           Version {testGeneration.generationVersion}
         </div>
-        <Button variant="outline" asChild>
-          <Link href={testGeneration.prUrl} target="_blank">
-            <ExternalLink className="mr-2 h-4 w-4" />
-            View PR on GitHub
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link href={testGeneration.prUrl} target="_blank">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View PR on GitHub
+            </Link>
+          </Button>
+          <Button
+            onClick={() => saveTests.mutate(testGeneration)}
+            disabled={saveTests.isPending}
+          >
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            {saveTests.isPending ? "Saving..." : "Save to Test Management"}
+          </Button>
+        </div>
       </div>
     </div>
   );
