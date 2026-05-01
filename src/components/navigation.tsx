@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 // import { Code2, Loader2 } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import {
   GoCheckCircle,
   GoCheckCircleFill,
@@ -56,6 +57,13 @@ const navItems = [
     icon: HiOutlineUserGroup,
     activeIcon: HiUserGroup,
   },
+  {
+    label: "Docs",
+    href: "/docs",
+    icon: BookOpen,
+    activeIcon: BookOpen,
+    scope: "global",
+  },
   // {
   //   label: "Contributions",
   //   icon: Code2,
@@ -63,6 +71,31 @@ const navItems = [
   //   dynamicRedirect: true,
   // },
 ];
+
+type NavItem = (typeof navItems)[number];
+
+const getResolvedHref = (workspaceId: string, item: NavItem) => {
+  if (item.scope === "global") {
+    return item.href;
+  }
+
+  if (item.href === "/") {
+    return `/workspaces/${workspaceId}`;
+  }
+
+  return `/workspaces/${workspaceId}${item.href ?? ""}`;
+};
+
+const isItemActive = (pathname: string, resolvedHref: string, label: string) => {
+  if (label === "Home") {
+    return (
+      pathname === resolvedHref ||
+      pathname === `${resolvedHref}/`
+    );
+  }
+
+  return pathname === resolvedHref || pathname.startsWith(`${resolvedHref}/`);
+};
 
 export const Navigation = () => {
   const workspaceId = useWorkspaceId();
@@ -94,35 +127,28 @@ export const Navigation = () => {
     return (
       <TooltipProvider>
         <ul className="flex flex-col gap-1">
-          {navItems.map(({ activeIcon, href, icon, label }) => {
-            const absoluteHref = `/workspaces/${workspaceId}${href ?? ""}`;
-
-            // Check if path is active, with special case for Home
-            const isActive =
-              label === "Home"
-                ? pathname === absoluteHref ||
-                  pathname === `/workspaces/${workspaceId}` ||
-                  pathname === `/workspaces/${workspaceId}/`
-                : pathname === absoluteHref ||
-                  pathname.startsWith(`${absoluteHref}/`);
+          {navItems.map((item) => {
+            const { activeIcon, icon, label } = item;
+            const resolvedHref = getResolvedHref(workspaceId, item);
+            const isActive = isItemActive(pathname, resolvedHref, label);
             const Icon = isActive ? activeIcon : icon;
 
             return (
-              <li key={href}>
+              <li key={`${label}-${resolvedHref}`}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
                       className={cn(
-                        "h-12 w-12",
+                        "h-12 w-12 rounded-2xl",
                         isActive
-                          ? "bg-slate-200 text-primary hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-200 hover:dark:bg-slate-700/50",
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm hover:bg-sidebar-accent"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
                       )}
                       asChild
                     >
-                      <Link href={absoluteHref}>
+                      <Link href={resolvedHref}>
                         <Icon className="size-12" />
                       </Link>
                     </Button>
@@ -141,17 +167,10 @@ export const Navigation = () => {
 
   return (
     <ul className="flex flex-col">
-      {navItems.map(({ activeIcon, href, icon, label }) => {
-        const absoluteHref = `/workspaces/${workspaceId}${href ?? ""}`;
-
-        // Check if path is active, with special case for Home
-        const isActive =
-          label === "Home"
-            ? pathname === absoluteHref ||
-              pathname === `/workspaces/${workspaceId}` ||
-              pathname === `/workspaces/${workspaceId}/`
-            : pathname === absoluteHref ||
-              pathname.startsWith(`${absoluteHref}/`);
+      {navItems.map((item) => {
+        const { activeIcon, icon, label } = item;
+        const resolvedHref = getResolvedHref(workspaceId, item);
+        const isActive = isItemActive(pathname, resolvedHref, label);
         const Icon = isActive ? activeIcon : icon;
 
         // Commented out Contributions dynamic redirect logic
@@ -193,14 +212,14 @@ export const Navigation = () => {
         // }
 
         return (
-          <li key={href}>
+          <li key={`${label}-${resolvedHref}`}>
             <Link
-              href={absoluteHref}
+              href={resolvedHref}
               className={cn(
-                "m-0.5 flex items-center gap-2.5 rounded-md p-2.5 font-medium transition",
+                "m-0.5 flex items-center gap-2.5 rounded-2xl px-3 py-2.5 font-medium transition",
                 isActive
-                  ? "bg-slate-200 text-primary hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-primary dark:text-slate-200 hover:dark:bg-slate-700/50",
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm hover:bg-sidebar-accent"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
               )}
             >
               <Icon className="size-5" />
