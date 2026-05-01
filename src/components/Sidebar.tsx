@@ -26,7 +26,7 @@ import { useProjectId } from "@/features/projects/hooks/use-projectId";
 import { useMemo, useCallback } from "react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
-import { CreditCard } from "lucide-react";
+// import { CreditCard } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,

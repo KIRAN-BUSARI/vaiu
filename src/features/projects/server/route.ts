@@ -48,8 +48,6 @@ const extractRepoName = (githubUrl: string): string => {
   return repoName;
 };
 
-const IMPORT_ISSUE_BATCH_SIZE = 25;
-
 const getProjectContext = async ({
   databases,
   userId,
@@ -515,7 +513,7 @@ const app = new Hono()
     const user = c.get("user");
     const { projectId } = c.req.param();
 
-    const { project, access } = await getProjectContext({
+    const { access } = await getProjectContext({
       databases,
       userId: user.$id,
       projectId,
@@ -686,7 +684,7 @@ const app = new Hono()
       const { projectId } = c.req.param();
       const { name, image } = c.req.valid("form");
 
-      const { project: existingProject, access } = await getProjectContext({
+      const { access } = await getProjectContext({
         databases,
         userId: user.$id,
         projectId,

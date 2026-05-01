@@ -53,14 +53,16 @@ const markdownComponents: Components = {
             {children}
         </blockquote>
     ),
-    code: ({ inline, children }) =>
-        inline ? (
-            <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.9em]">
+    code: ({ node, children, ...props }) => {
+        const isInline = node?.position?.start.line === node?.position?.end.line;
+        return isInline ? (
+            <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.9em]" {...props}>
                 {children}
             </code>
         ) : (
-            <code className="font-mono text-sm leading-6">{children}</code>
-        ),
+            <code className="font-mono text-sm leading-6" {...props}>{children}</code>
+        );
+    },
     pre: ({ children }) => (
         <pre className="mt-6 overflow-x-auto rounded-2xl bg-muted/65 p-4 font-mono text-sm">
             {children}
