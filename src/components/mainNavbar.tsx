@@ -50,6 +50,15 @@ export function Navbar({ className }: { className?: string }) {
           <Logo2 className="hidden dark:block" />
         </Link>
         <div className="flex items-center gap-x-4">
+          {/* <Button
+            asChild
+            variant="ghost"
+            className="font-semibold"
+          >
+            <Link href="/pricing">
+              Pricing
+            </Link>
+          </Button> */}
           <Button
             asChild
             variant="outline"
