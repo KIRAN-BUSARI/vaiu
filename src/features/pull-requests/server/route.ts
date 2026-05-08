@@ -12,9 +12,10 @@ import {
   getInstallationToken,
   listPullRequests,
   createPullRequest,
-  checkCollaborator,
   addIssueAssignees,
   getAuthenticatedUser,
+  listRepositoryBranches,
+  listRepositoryForks,
 } from "@/lib/github-api";
 import { createPrSchema } from "../schemas";
 import { ID, Query, type Databases } from "node-appwrite";
@@ -93,6 +94,15 @@ const app = new Hono()
         }, 400);
       }
 
+      if (!project.owner) {
+        return c.json(
+          {
+            error: "Pull requests require a GitHub-linked project.",
+          },
+          400,
+        );
+      }
+
       try {
         const prsFromGit = await listPullRequests(
           githubToken,
@@ -150,6 +160,99 @@ const app = new Hono()
       }
     }
   )
+  .get(
+    "/:projectId/create-options",
+    sessionMiddleware,
+    async (c) => {
+      const databases = c.get("databases");
+      const user = c.get("user");
+      const { projectId } = c.req.param();
+
+      const { project, access } = await getProjectContext({
+        databases,
+        userId: user.$id,
+        projectId,
+      });
+
+      if (!project) {
+        return c.json({ error: "Project not found" }, 404);
+      }
+
+      if (!access.hasAccess) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+
+      const githubToken = await getAccessToken(user.$id);
+
+      if (!githubToken) {
+        return c.json({
+          error: "GitHub account not connected. Cannot create pull request.",
+        }, 400);
+      }
+
+      if (!project.owner) {
+        return c.json(
+          {
+            error:
+              "This project is not linked to GitHub. Pull requests are only available for GitHub projects.",
+          },
+          400,
+        );
+      }
+
+      const baseOwner = project.owner;
+
+      const githubUser = await getAuthenticatedUser(githubToken);
+      const [baseBranches, forks] = await Promise.all([
+        listRepositoryBranches(githubToken, baseOwner, project.name),
+        listRepositoryForks(githubToken, baseOwner, project.name),
+      ]);
+
+      const userForks = forks.filter(
+        (fork) => fork.owner?.login === githubUser.login,
+      );
+      const headProjects = [
+        {
+          owner: baseOwner,
+          repo: project.name,
+          fullName: `${baseOwner}/${project.name}`,
+        },
+        ...userForks.map((fork) => ({
+          owner: fork.owner?.login || baseOwner,
+          repo: fork.name,
+          fullName: fork.full_name,
+        })),
+      ];
+
+      const headProjectsWithBranches = await Promise.all(
+        headProjects.map(async (headProject) => {
+          const branches = await listRepositoryBranches(
+            githubToken,
+            headProject.owner,
+            headProject.repo,
+          );
+
+          return {
+            ...headProject,
+            branches: branches.map((branch) => branch.name),
+          };
+        }),
+      );
+
+      return c.json({
+        data: {
+          githubUsername: githubUser.login,
+          baseProject: {
+            owner: baseOwner,
+            repo: project.name,
+            fullName: `${baseOwner}/${project.name}`,
+            branches: baseBranches.map((branch) => branch.name),
+          },
+          headProjects: headProjectsWithBranches,
+        },
+      });
+    },
+  )
   .post(
     "/:projectId/submit-pull-request",
     sessionMiddleware,
@@ -160,14 +263,14 @@ const app = new Hono()
 
       const { projectId } = c.req.param();
 
-      const { title, description, branch, baseBranch, githubUsername } =
+      const { title, description, headOwner, headRepo, branch, baseBranch } =
         c.req.valid("form");
 
-      if (!title || !description || !branch || !baseBranch || !githubUsername) {
+      if (!title || !description || !headOwner || !headRepo || !branch || !baseBranch) {
         return c.json(
           {
             error:
-              "Title, description, branch, base branch and GitHub username are required",
+              "Title, description, head project, head branch and base branch are required",
           },
           400
         );
@@ -196,55 +299,48 @@ const app = new Hono()
         }, 400);
       }
 
-      try {
-        // Get authenticated GitHub user
-        const authenticatedGithubUser = await getAuthenticatedUser(githubToken);
-        if (!authenticatedGithubUser) {
-          return c.json({ error: "Failed to authenticate with GitHub" }, 500);
-        }
-
-        // Check if user is a collaborator on the repository
-        const isCollaborator = await checkCollaborator(
-          githubToken,
-          project.owner,
-          project.name,
-          authenticatedGithubUser.login
+      if (!project.owner) {
+        return c.json(
+          {
+            error:
+              "This project is not linked to GitHub. Cannot create a pull request.",
+          },
+          400,
         );
+      }
 
-        if (!isCollaborator) {
-          return c.json({
-            error: "You must be a collaborator on this repository to create pull requests"
-          }, 403);
-        }
-
+      try {
+        const githubUser = await getAuthenticatedUser(githubToken);
+        const head =
+          headOwner === project.owner && headRepo === project.name
+            ? branch
+            : `${headOwner}:${branch}`;
         const createPR = await createPullRequest(
           githubToken,
           project.owner,
           project.name,
           title,
-          branch,
+          head,
           baseBranch,
           description
         );
 
-        // Add assignee and persist to database in parallel
-        await Promise.all([
-          addIssueAssignees(
-            githubToken,
-            project.owner,
-            project.name,
-            createPR.number,
-            [githubUsername]
-          ),
-          databases.createDocument(DATABASE_ID, PR_ID, ID.unique(), {
-            title,
-            description,
-            branch,
-            baseBranch,
-            githubUsername,
-            projectId,
-          })
-        ]);
+        await databases.createDocument(DATABASE_ID, PR_ID, ID.unique(), {
+          title,
+          description,
+          branch,
+          baseBranch,
+          githubUsername: githubUser.login,
+          projectId,
+        });
+
+        await addIssueAssignees(
+          githubToken,
+          project.owner,
+          project.name,
+          createPR.number,
+          [githubUser.login],
+        );
 
         return c.json(
           {
@@ -313,6 +409,15 @@ const app = new Hono()
           }, 400);
         }
 
+        if (!project.owner) {
+          return c.json(
+            {
+              error: "AI review requires a GitHub-linked project.",
+            },
+            400,
+          );
+        }
+
         // Check and consume AI credits
         const creditResult = await consumeAICredits({
           databases,
@@ -370,6 +475,15 @@ const app = new Hono()
           return c.json({
             error: "GitHub account not connected. Cannot generate tests."
           }, 400);
+        }
+
+        if (!project.owner) {
+          return c.json(
+            {
+              error: "Test generation requires a GitHub-linked project.",
+            },
+            400,
+          );
         }
 
         // Check if tests were recently generated (within last 5 minutes) to prevent spamming
@@ -731,6 +845,11 @@ async function generateAIReview({
   githubToken: string;
 }): Promise<AIReview> {
   try {
+    const owner = project.owner;
+    if (!owner) {
+      throw new Error("Project has no GitHub owner");
+    }
+
     const octokit = new Octokit({ auth: githubToken });
 
     // Fetch all GitHub data in parallel for faster response
@@ -741,22 +860,22 @@ async function generateAIReview({
       { data: repo }
     ] = await Promise.all([
       octokit.rest.pulls.get({
-        owner: project.owner,
+        owner,
         repo: project.name,
         pull_number: prNumber,
       }),
       octokit.rest.pulls.listFiles({
-        owner: project.owner,
+        owner,
         repo: project.name,
         pull_number: prNumber,
       }),
       octokit.rest.pulls.listReviews({
-        owner: project.owner,
+        owner,
         repo: project.name,
         pull_number: prNumber,
       }),
       octokit.rest.repos.get({
-        owner: project.owner,
+        owner,
         repo: project.name,
       })
     ]);
@@ -778,7 +897,7 @@ async function generateAIReview({
         status: file.status
       })),
       prUrl: pr.html_url,
-      repoName: `${project.owner}/${project.name}`,
+      repoName: `${owner}/${project.name}`,
       baseBranch: pr.base.ref,
       headBranch: pr.head.ref,
       existingReviews: reviews.slice(0, 5).map(review => ({ // Limit to 5 most recent reviews
@@ -833,6 +952,11 @@ async function generateAITests({
   githubToken: string;
 }): Promise<AITestGeneration> {
   try {
+    const owner = project.owner;
+    if (!owner) {
+      throw new Error("Project has no GitHub owner");
+    }
+
     const octokit = new Octokit({ auth: githubToken });
 
     // Fetch all GitHub data in parallel for faster response
@@ -843,22 +967,22 @@ async function generateAITests({
       { data: repo }
     ] = await Promise.all([
       octokit.rest.pulls.get({
-        owner: project.owner,
+        owner,
         repo: project.name,
         pull_number: prNumber,
       }),
       octokit.rest.pulls.listFiles({
-        owner: project.owner,
+        owner,
         repo: project.name,
         pull_number: prNumber,
       }),
       octokit.rest.pulls.listCommits({
-        owner: project.owner,
+        owner,
         repo: project.name,
         pull_number: prNumber,
       }),
       octokit.rest.repos.get({
-        owner: project.owner,
+        owner,
         repo: project.name,
       })
     ]);
@@ -883,7 +1007,7 @@ async function generateAITests({
       author: pr.user?.login || "unknown",
       repoInfo: {
         language: repo.language,
-        name: `${project.owner}/${project.name}`,
+        name: `${owner}/${project.name}`,
       },
     };
 
